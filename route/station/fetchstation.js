@@ -14,7 +14,8 @@ async function updateStation() {
   }
 }
 
-setInterval(updateStation, 15000);
+// setInterval(updateStation, 15000);
+setInterval(updateStation, 15000000);
 
 function getStationInfo() {
   console.log("Serving getStationInfo: ", arrmsg1);

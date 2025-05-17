@@ -16,7 +16,7 @@ function getAdList() {
     link: "https://youtu.be/rameVU9T7dE?si=RArLhrPFjvv3gWo-",
     // link: "https://www.youtube.com/@subs_1955",
     showtext: true,
-    text: "Ep.2 조승용 ‘스꾸버스’ 개발자 [언성히어로 2화]",
+    text: "스꾸버스 카카오톡 채널 - 문의하기",
     showtext2: false,
     text2: "👆 성대생이라면 이 자리, 무료 광고 (구글폼 작성)",
     // text1은 선택한 url로 단순이동
