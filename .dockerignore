@@ -4,3 +4,11 @@ node_modules
 .env
 *.env
 npm-debug.log
+coverage/
+__tests__/
+__fixtures__/
+jest.config.js
+eslint.config.js
+*.md
+.claude/
+swagger/swagger.js

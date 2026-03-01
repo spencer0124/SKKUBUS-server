@@ -8,7 +8,8 @@
     "dev": "NODE_ENV=development nodemon index.js",
     "dev:prod-api": "NODE_ENV=development USE_PROD_API=true nodemon index.js",
     "test": "jest",
-    "swagger": "node swagger/swagger.js"
+    "swagger": "node swagger/swagger.js",
+    "lint": "eslint ."
   },
   "author": "",
   "license": "ISC",
@@ -25,6 +26,8 @@
     "swagger-ui-express": "^5.0.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.0.2",
     "jest": "^30.2.0",
     "node-cron": "^3.0.3",
     "nodemon": "^3.1.9",
