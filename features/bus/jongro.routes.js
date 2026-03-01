@@ -4,7 +4,7 @@ const asyncHandler = require("../../lib/asyncHandler");
 const { getJongroBusList, getJongroBusLocation } = require("./jongro.fetcher");
 const { Jongro02Stations, Jongro07Stations } = require("./jongro.stations");
 
-const Jongrotations = {
+const JongroStations = {
   "07": Jongro07Stations,
   "02": Jongro02Stations,
 };
@@ -12,50 +12,45 @@ const Jongrotations = {
 router.get("/v1/busstation/:line", asyncHandler(async (req, res) => {
   const busLine = req.params.line;
 
-  const response = getJongroBusList(busLine);
-  const response2 = getJongroBusLocation(busLine);
+  const busList = getJongroBusList(busLine);
+  const busLocations = getJongroBusLocation(busLine);
 
-  const metadata = {
+  const metaData = {
     currentTime: new Date().toLocaleTimeString("en-US", {
       timeZone: "Asia/Seoul",
       hour: "2-digit",
       minute: "2-digit",
       hour12: true,
     }),
-    totalBuses: response2 == undefined ? 0 : response2.length,
+    totalBuses: busLocations ? busLocations.length : 0,
     lastStationIndex: busLine === "07" ? 18 : 25,
   };
 
-  Jongrotations[busLine].forEach((item) => {
-    if (Array.isArray(response)) {
-      const station = response.find(
-        (station) => station.stationName === item.stationName
-      );
-      if (station) {
-        item.eta = station.eta;
-      }
+  const stationsWithEta = (JongroStations[busLine] || []).map((item) => {
+    if (Array.isArray(busList)) {
+      const match = busList.find((s) => s.stationName === item.stationName);
+      if (match) return { ...item, eta: match.eta };
     }
+    return item;
   });
 
-  var HSSCStations = Jongrotations[busLine];
-
-  res.json({ metadata, HSSCStations });
+  res.json({ metaData, stations: stationsWithEta });
 }));
 
 router.get("/v1/buslocation/:line", asyncHandler(async (req, res) => {
   const busLine = req.params.line;
 
-  let response = getJongroBusLocation(busLine);
-  if (response == undefined) {
-    res.json([]);
-  } else {
-    response = response.map((station) => ({
-      ...station,
-      isLastBus: false,
-    }));
-
-    res.json(response);
+  const locations = getJongroBusLocation(busLine);
+  if (!locations) {
+    return res.json([]);
   }
+
+  const response = locations.map((station) => ({
+    ...station,
+    isLastBus: false,
+  }));
+
+  res.json(response);
 }));
 
 module.exports = router;

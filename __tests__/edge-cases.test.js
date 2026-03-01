@@ -59,9 +59,8 @@ describe("HSSC edge cases", () => {
     const now = moment().tz("Asia/Seoul").locale("ko").format("YYYY-MM-DD a h:mm:ss");
 
     const mockGet = jest.fn();
-    // fetchhssc_new calls axios.get twice per interval: once for healthcheck, once for API
+    // After heartbeat removal, updateHSSCBusList makes one axios.get call per interval
     mockGet
-      .mockResolvedValueOnce({}) // healthcheck
       .mockResolvedValueOnce({
         data: [
           {
@@ -73,7 +72,6 @@ describe("HSSC edge cases", () => {
           },
         ],
       })
-      .mockResolvedValueOnce({}) // healthcheck (2nd tick)
       .mockRejectedValueOnce(new Error("API down")); // API fails on 2nd tick
 
     jest.doMock("axios", () => ({ get: mockGet }));

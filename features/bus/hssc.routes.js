@@ -12,7 +12,7 @@ router.get("/v1/buslocation", asyncHandler(async (req, res) => {
 router.get("/v1/busstation", asyncHandler(async (req, res) => {
   const dynamicBusData = getHSSCBusList();
 
-  const metadata = {
+  const metaData = {
     currentTime: new Date().toLocaleTimeString("en-US", {
       timeZone: "Asia/Seoul",
       hour: "2-digit",
@@ -22,7 +22,7 @@ router.get("/v1/busstation", asyncHandler(async (req, res) => {
     totalBuses: dynamicBusData.length,
     lastStationIndex: 10,
   };
-  res.json({ metadata, HSSCStations });
+  res.json({ metaData, stations: HSSCStations });
 }));
 
 module.exports = router;

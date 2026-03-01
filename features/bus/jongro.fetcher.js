@@ -6,6 +6,8 @@ let filteredBusStations = {};
 let filteredBusLocations = {};
 const busStationTimes = {};
 
+const STALE_MINUTES = 10;
+
 const busStationMapping = {
   "02": Jongro02stationMapping,
   "07": Jongro07stationMapping,
@@ -38,7 +40,7 @@ async function updateJongroBusLocation(url, busnumber) {
         (currentTime - new Date(currentBusStationTimes[lastStnId])) /
           1000 /
           60 >
-        10
+        STALE_MINUTES
       ) {
         delete currentBusStationTimes[lastStnId];
       }
@@ -64,7 +66,7 @@ async function updateJongroBusLocation(url, busnumber) {
       });
     });
   } catch (error) {
-    console.error(error);
+    console.error("[jongro] Failed to update bus location:", error.message);
   }
 }
 
@@ -92,29 +94,24 @@ async function updateJongroBusList(url, busnumber) {
       });
     });
   } catch (error) {
-    console.error(error);
+    console.error("[jongro] Failed to update bus list:", error.message);
   }
 }
 
 function getJongroBusList(busnumber) {
-  console.log("Serving getJongroBusList: ", filteredBusStations[busnumber]);
   return filteredBusStations[busnumber];
 }
 
 function getJongroBusLocation(busnumber) {
-  console.log(
-    "Serving getJongroBusLocation: ",
-    filteredBusLocations[busnumber]
-  );
   return filteredBusLocations[busnumber];
 }
 
 pollers.registerPoller(() => {
   const config = require("../../lib/config");
-  updateJongroBusList(config.api.jongro07List, "07").catch(console.error);
-  updateJongroBusList(config.api.jongro02List, "02").catch(console.error);
-  updateJongroBusLocation(config.api.jongro07Loc, "07").catch(console.error);
-  updateJongroBusLocation(config.api.jongro02Loc, "02").catch(console.error);
+  updateJongroBusList(config.api.jongro07List, "07").catch((err) => console.error("[jongro]", err.message));
+  updateJongroBusList(config.api.jongro02List, "02").catch((err) => console.error("[jongro]", err.message));
+  updateJongroBusLocation(config.api.jongro07Loc, "07").catch((err) => console.error("[jongro]", err.message));
+  updateJongroBusLocation(config.api.jongro02Loc, "02").catch((err) => console.error("[jongro]", err.message));
 }, 15000, "jongro");
 
 module.exports = { getJongroBusList, getJongroBusLocation };

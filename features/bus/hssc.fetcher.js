@@ -3,6 +3,12 @@ const pollers = require("../../lib/pollers");
 
 let filteredHSSCStations = [];
 
+// Stale data thresholds (minutes). Buses older than this are filtered out.
+const STALE_MINUTES_TURNAROUND = 3;  // 농구장 (turnaround point, tighter window)
+const STALE_MINUTES_DEFAULT = 10;     // all other stations
+
+const TURNAROUND_STATION = "농구장 (셔틀버스정류소)";
+
 const stopNameMapping = {
   "혜화역 1번출구 셔틀버스 정류소": "혜화역 1번출구 (셔틀버스정류소)",
   혜화동로터리: "혜화동로터리 [미정차]",
@@ -16,13 +22,15 @@ const stopNameMapping = {
   서울혜화동우체국: "혜화동우체국 [하차전용]",
 };
 
-async function updateHSSCBusList() {
-  try {
-    axios.get('https://hc-ping.com/4947983b-26db-46dc-a906-81c60d3f889d').catch(() => {});
-  } catch (error) {
-    // heartbeat ping errors ignored
-  }
+// HSSC API seq is a circular route index (0-10).
+// Convert to linear station sequence (1-11):
+//   seq >= 5 → seq - 4  (5→1, 6→2, ..., 10→6)
+//   seq < 5  → seq + 7  (0→7, 1→8, ..., 4→11)
+function toLinearSequence(seq) {
+  return seq >= 5 ? seq - 4 : seq + 7;
+}
 
+async function updateHSSCBusList() {
   try {
     const config = require("../../lib/config");
     const response = await axios.get(config.api.hsscNew);
@@ -46,11 +54,7 @@ async function updateHSSCBusList() {
         }
 
         const timeDiff = (currentTime - eventDateTime) / 1000;
-        const sequencetoint = parseInt(item.seq);
-        const realsequence =
-          sequencetoint - 5 >= 0
-            ? sequencetoint - 5 + 1
-            : sequencetoint + 6 + 1;
+        const realsequence = toLinearSequence(parseInt(item.seq));
 
         return {
           ...item,
@@ -67,29 +71,21 @@ async function updateHSSCBusList() {
         };
       })
       .filter((item) => {
-        if (item.stationName === "농구장 (셔틀버스정류소)") {
-          const itemTime = moment(item.eventDate, "YYYY-MM-DD HH:mm:ss");
-          const comparisonTime = moment()
-            .tz("Asia/Seoul")
-            .subtract(3, "minutes");
-          return !itemTime.isBefore(comparisonTime);
-        } else {
-          const itemTime = moment(item.eventDate, "YYYY-MM-DD HH:mm:ss");
-          const comparisonTime = moment()
-            .tz("Asia/Seoul")
-            .subtract(10, "minutes");
-          return !itemTime.isBefore(comparisonTime);
-        }
+        const staleMinutes = item.stationName === TURNAROUND_STATION
+          ? STALE_MINUTES_TURNAROUND
+          : STALE_MINUTES_DEFAULT;
+        const itemTime = moment(item.eventDate, "YYYY-MM-DD HH:mm:ss");
+        const cutoff = moment().tz("Asia/Seoul").subtract(staleMinutes, "minutes");
+        return !itemTime.isBefore(cutoff);
       });
 
     filteredHSSCStations = updatedData;
   } catch (error) {
-    console.error(error);
+    console.error("[hssc] Failed to update bus list:", error.message);
   }
 }
 
 function getHSSCBusList() {
-  console.log("Serving filteredHSSCStations: ", filteredHSSCStations);
   return filteredHSSCStations;
 }
 
