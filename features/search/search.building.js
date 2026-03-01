@@ -1,11 +1,6 @@
-/*
-option1. 건물 검색
-*/
-
 const axios = require("axios");
-const { encodeQuery } = require("../../common/url_encode.js");
+const { encodeQuery } = require("./search.helpers");
 
-// baseurl
 const searchOption1_building =
   "https://www.skku.edu/skku/about/campusInfo/campusMap.do?mode=buildList&mode=list&srSearchValue=";
 

@@ -1,45 +1,36 @@
 // Mock all fetch modules BEFORE requiring the app
-// This prevents setInterval from firing on require
-jest.mock("../route/bus/hssc_v1/fetchhssc_new.js", () => ({
+// This prevents pollers from registering on require
+jest.mock("../features/bus/hssc.fetcher", () => ({
   getHSSCBusList: jest.fn().mockReturnValue([]),
 }));
 
-jest.mock("../route/bus/jongro/fetchjongro.js", () => ({
+jest.mock("../features/bus/jongro.fetcher", () => ({
   getJongroBusList: jest.fn().mockReturnValue(undefined),
   getJongroBusLocation: jest.fn().mockReturnValue(undefined),
 }));
 
-jest.mock("../route/station/fetchstation.js", () => ({
+jest.mock("../features/station/station.fetcher", () => ({
   getStationInfo: jest.fn().mockReturnValue("정보 없음"),
 }));
 
-// Mock poll route to avoid MongoDB connection
-jest.mock("../route/poll/poll.js", () => {
-  const express = require("express");
-  const router = express.Router();
-  return router;
-});
-
 // Mock campus route to avoid MongoDB connection
-jest.mock("../route/bus/campus/campus.js", () => {
-  const express = require("express");
-  const router = express.Router();
-  return router;
-});
+jest.mock("../features/bus/campus.data", () => ({
+  getData: jest.fn().mockResolvedValue([]),
+}));
 
 const request = require("supertest");
 const app = require("../index");
 
 const {
   getHSSCBusList,
-} = require("../route/bus/hssc_v1/fetchhssc_new.js");
+} = require("../features/bus/hssc.fetcher");
 const {
   getJongroBusList,
   getJongroBusLocation,
-} = require("../route/bus/jongro/fetchjongro.js");
+} = require("../features/bus/jongro.fetcher");
 const {
   getStationInfo,
-} = require("../route/station/fetchstation.js");
+} = require("../features/station/station.fetcher");
 
 afterEach(() => {
   jest.clearAllTimers();

@@ -20,7 +20,14 @@ function setupModule(mockImpl) {
 
   jest.doMock("axios", () => ({ get: mockGet }));
 
-  const fetchModule = require("../route/bus/jongro/fetchjongro.js");
+  // Mock pollers so registerPoller immediately starts setInterval
+  jest.doMock("../lib/pollers", () => ({
+    registerPoller: (fn, ms) => setInterval(fn, ms),
+    startAll: jest.fn(),
+    stopAll: jest.fn(),
+  }));
+
+  const fetchModule = require("../features/bus/jongro.fetcher");
   const axios = require("axios");
   return {
     getJongroBusList: fetchModule.getJongroBusList,
@@ -168,7 +175,7 @@ describe("Jongro fetchjongro.js", () => {
       }));
       const consoleSpy = jest.spyOn(console, "error").mockImplementation();
 
-      const { getJongroBusList } = require("../route/bus/jongro/fetchjongro.js");
+      const { getJongroBusList } = require("../features/bus/jongro.fetcher");
 
       await jest.advanceTimersByTimeAsync(15000);
 

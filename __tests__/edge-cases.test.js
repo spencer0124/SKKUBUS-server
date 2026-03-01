@@ -37,8 +37,13 @@ describe("HSSC edge cases", () => {
         ],
       }),
     }));
+    jest.doMock("../lib/pollers", () => ({
+      registerPoller: (fn, ms) => setInterval(fn, ms),
+      startAll: jest.fn(),
+      stopAll: jest.fn(),
+    }));
 
-    const { getHSSCBusList } = require("../route/bus/hssc_v1/fetchhssc_new.js");
+    const { getHSSCBusList } = require("../features/bus/hssc.fetcher");
 
     await jest.advanceTimersByTimeAsync(10000);
 
@@ -72,8 +77,13 @@ describe("HSSC edge cases", () => {
       .mockRejectedValueOnce(new Error("API down")); // API fails on 2nd tick
 
     jest.doMock("axios", () => ({ get: mockGet }));
+    jest.doMock("../lib/pollers", () => ({
+      registerPoller: (fn, ms) => setInterval(fn, ms),
+      startAll: jest.fn(),
+      stopAll: jest.fn(),
+    }));
 
-    const { getHSSCBusList } = require("../route/bus/hssc_v1/fetchhssc_new.js");
+    const { getHSSCBusList } = require("../features/bus/hssc.fetcher");
 
     // First tick — data loads
     await jest.advanceTimersByTimeAsync(10000);
@@ -100,8 +110,13 @@ describe("Jongro edge cases", () => {
         data: { msgBody: { itemList: [] } },
       }),
     }));
+    jest.doMock("../lib/pollers", () => ({
+      registerPoller: (fn, ms) => setInterval(fn, ms),
+      startAll: jest.fn(),
+      stopAll: jest.fn(),
+    }));
 
-    const { getJongroBusList } = require("../route/bus/jongro/fetchjongro.js");
+    const { getJongroBusList } = require("../features/bus/jongro.fetcher");
 
     await jest.advanceTimersByTimeAsync(15000);
 
@@ -116,9 +131,14 @@ describe("Jongro edge cases", () => {
     jest.doMock("axios", () => ({
       get: jest.fn().mockRejectedValue(new Error("Network error")),
     }));
+    jest.doMock("../lib/pollers", () => ({
+      registerPoller: (fn, ms) => setInterval(fn, ms),
+      startAll: jest.fn(),
+      stopAll: jest.fn(),
+    }));
     const consoleSpy = jest.spyOn(console, "error").mockImplementation();
 
-    const { getJongroBusList } = require("../route/bus/jongro/fetchjongro.js");
+    const { getJongroBusList } = require("../features/bus/jongro.fetcher");
 
     await jest.advanceTimersByTimeAsync(15000);
 
@@ -135,9 +155,14 @@ describe("Station edge cases", () => {
     jest.doMock("axios", () => ({
       get: jest.fn().mockRejectedValue(new Error("Network error")),
     }));
+    jest.doMock("../lib/pollers", () => ({
+      registerPoller: (fn, ms) => setInterval(fn, ms),
+      startAll: jest.fn(),
+      stopAll: jest.fn(),
+    }));
     const consoleSpy = jest.spyOn(console, "error").mockImplementation();
 
-    const { getStationInfo } = require("../route/station/fetchstation.js");
+    const { getStationInfo } = require("../features/station/station.fetcher");
 
     await jest.advanceTimersByTimeAsync(15000);
 
@@ -158,8 +183,13 @@ describe("Station edge cases", () => {
         },
       }),
     }));
+    jest.doMock("../lib/pollers", () => ({
+      registerPoller: (fn, ms) => setInterval(fn, ms),
+      startAll: jest.fn(),
+      stopAll: jest.fn(),
+    }));
 
-    const { getStationInfo } = require("../route/station/fetchstation.js");
+    const { getStationInfo } = require("../features/station/station.fetcher");
 
     // Default value before any interval fires
     expect(getStationInfo()).toBe("정보 없음");

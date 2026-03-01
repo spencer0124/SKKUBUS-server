@@ -1,8 +1,3 @@
-/*
-option1_detail.
-건물 내부 정보
-*/
-
 const axios = require("axios");
 
 const searchOption1_building =

@@ -1,10 +1,5 @@
-/*
-option3. 코드로 장소 검색
-*/
-
 const axios = require("axios");
 
-// baseurl
 const searchOption3_spaceList =
   "https://www.skku.edu/skku/about/campusInfo/campusMap.do?mode=spaceList&mode=spaceList";
 

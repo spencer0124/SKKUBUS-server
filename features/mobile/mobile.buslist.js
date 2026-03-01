@@ -1,11 +1,4 @@
-const AppColors = require("../../common/colors");
-
-/* 
-nullalbe
-altPageLink: String?
-animationText: String?
-noticeText: String?
-*/
+const AppColors = { deepgreen: "003626", green: "4CAF50" };
 
 function getBusList() {
   return {
@@ -13,20 +6,6 @@ function getBusList() {
       busList_count: 4,
     },
     busList: [
-      // {
-      //   title: "설 연휴 귀향/귀경 버스",
-      //   subtitle: "수요조사 후 - 수요 지역별 왕복 운영",
-      //   busTypeText: "성대",
-      //   busTypeBgColor: AppColors.deepgreen,
-      //   pageLink: "/customwebview",
-      //   pageWebviewLink: "https://www.naver.com",
-      //   altPageLink: "https://namu.wiki/w/%EB%8F%84%EB%A7%9D%EC%B3%90",
-      //   noticeText: "자과캠을 출발/도착지로 운영합니다",
-      //   useAltPageLink: false,
-      //   showAnimation: true,
-      //   showNoticeText: true,
-      // },
-
       {
         title: "인사캠 셔틀버스",
         subtitle: "정차소(인문.농구장) ↔ 600주년 기념관",

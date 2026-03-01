@@ -26,7 +26,14 @@ function setupModule(mockData) {
     get: jest.fn().mockResolvedValue(mockData),
   }));
 
-  const fetchModule = require("../route/bus/hssc_v1/fetchhssc_new.js");
+  // Mock pollers so registerPoller immediately starts setInterval
+  jest.doMock("../lib/pollers", () => ({
+    registerPoller: (fn, ms) => setInterval(fn, ms),
+    startAll: jest.fn(),
+    stopAll: jest.fn(),
+  }));
+
+  const fetchModule = require("../features/bus/hssc.fetcher");
   const axios = require("axios");
   return { getHSSCBusList: fetchModule.getHSSCBusList, axios };
 }
@@ -164,7 +171,7 @@ describe("HSSC fetchhssc_new.js", () => {
       }));
       const consoleSpy = jest.spyOn(console, "error").mockImplementation();
 
-      const { getHSSCBusList } = require("../route/bus/hssc_v1/fetchhssc_new.js");
+      const { getHSSCBusList } = require("../features/bus/hssc.fetcher");
 
       await jest.advanceTimersByTimeAsync(10000);
 

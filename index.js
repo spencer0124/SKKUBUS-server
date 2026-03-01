@@ -1,8 +1,7 @@
-// nodemon index.js 명령어로 서버 실행
-
-// Import the express module
 const express = require("express");
 const swaggerUi = require("swagger-ui-express");
+const pollers = require("./lib/pollers");
+const { closeClient } = require("./lib/db");
 
 let swaggerFile;
 try {
@@ -11,41 +10,52 @@ try {
   console.warn("swagger-output.json not found. Run 'npm run swagger' to generate it.");
 }
 
-// Create an instance of express
 const app = express();
+const PORT = require("./lib/config").port;
 
-// Define a port number
-const PORT = process.env.PORT || 3000;
-
-// swagger api docs
+// Swagger API docs
 if (swaggerFile) {
   app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerFile, { explorer: true }));
 }
 
-// Route
-const searchRoute = require("./route/search/search.js");
-const newhsscRoute = require("./route/bus/hssc_v1/hssc_new.js");
-const jongroRoute = require("./route/bus/jongro/jongro.js");
-const stationRoute = require("./route/station/station.js");
-const mobileRoute = require("./route/mobile/mobile.js");
-const adRoute = require("./route/ad/ad.js");
-const pollRoute = require("./route/poll/poll.js");
-const campusRoute = require("./route/bus/campus/campus.js");
+// Feature routes
+const searchRoute = require("./features/search/search.routes");
+const { hsscRoutes, jongroRoutes, campusRoutes } = require("./features/bus/bus.routes");
+const stationRoute = require("./features/station/station.routes");
+const mobileRoute = require("./features/mobile/mobile.routes");
+const adRoute = require("./features/ad/ad.routes");
+
 app.use("/search", searchRoute);
-app.use("/bus/hssc", newhsscRoute);
-app.use("/bus/hssc_new", newhsscRoute);
-app.use("/bus/jongro", jongroRoute);
+app.use("/bus/hssc", hsscRoutes);
+app.use("/bus/hssc_new", hsscRoutes);
+app.use("/bus/jongro", jongroRoutes);
 app.use("/station", stationRoute);
 app.use("/mobile/", mobileRoute);
 app.use("/ad/", adRoute);
-app.use("/poll/", pollRoute);
-app.use("/campus/", campusRoute);
+app.use("/campus/", campusRoutes);
 
-// Start the server on the specified port
+// Shared error handler
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ error: "Internal server error" });
+});
+
+// Start server
 if (require.main === module) {
+  pollers.startAll();
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
+
+  // Graceful shutdown
+  const shutdown = async () => {
+    console.log("Shutting down...");
+    pollers.stopAll();
+    await closeClient();
+    process.exit(0);
+  };
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdown);
 }
 
 module.exports = app;
