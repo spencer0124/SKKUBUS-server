@@ -24,6 +24,11 @@ if (swaggerFile) {
   app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerFile, { explorer: true }));
 }
 
+// Health check (unprotected, before auth/rate-limiting)
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok", uptime: process.uptime() });
+});
+
 // Rate limiters (uid-based to handle shared campus WiFi)
 const searchLimiter = rateLimit({
   windowMs: 60 * 1000,

@@ -66,6 +66,15 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
+describe("Health check", () => {
+  it("GET /health returns status ok and uptime", async () => {
+    const res = await request(app).get("/health");
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("ok");
+    expect(typeof res.body.uptime).toBe("number");
+  });
+});
+
 describe("HSSC routes", () => {
   describe("GET /bus/hssc/v1/busstation", () => {
     it("returns metadata and 11 stations", async () => {
