@@ -10,7 +10,7 @@ const { ensureIndexes, seedIfEmpty } = require("./features/ad/ad.data");
 let swaggerFile;
 try {
   swaggerFile = require("./swagger/swagger-output.json");
-} catch (e) {
+} catch {
   console.warn("swagger-output.json not found. Run 'npm run swagger' to generate it.");
 }
 
@@ -40,6 +40,15 @@ const searchLimiter = rateLimit({
   message: { error: "Too many requests" },
 });
 
+const generalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  keyGenerator: ipKeyGenerator,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests" },
+});
+
 // Feature routes
 const searchRoute = require("./features/search/search.routes");
 const { hsscRoutes, jongroRoutes, campusRoutes } = require("./features/bus/bus.routes");
@@ -48,13 +57,13 @@ const mobileRoute = require("./features/mobile/mobile.routes");
 const adRoute = require("./features/ad/ad.routes");
 
 app.use("/search", verifyToken, searchLimiter, searchRoute);
-app.use("/bus/hssc", hsscRoutes);
-app.use("/bus/hssc_new", hsscRoutes);
-app.use("/bus/jongro", jongroRoutes);
-app.use("/station", stationRoute);
-app.use("/mobile/", mobileRoute);
+app.use("/bus/hssc", generalLimiter, hsscRoutes);
+app.use("/bus/hssc_new", generalLimiter, hsscRoutes);
+app.use("/bus/jongro", generalLimiter, jongroRoutes);
+app.use("/station", generalLimiter, stationRoute);
+app.use("/mobile/", generalLimiter, mobileRoute);
 app.use("/ad/", verifyToken, adRoute);
-app.use("/campus/", campusRoutes);
+app.use("/campus/", generalLimiter, campusRoutes);
 
 // Shared error handler
 app.use((err, req, res, next) => {

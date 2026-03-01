@@ -54,7 +54,7 @@ MongoDB-backed ad management in `features/ad/`. Ads are per-placement (splash, m
 
 - `ad.data.js`: CRUD with in-memory cache (60s TTL), `ensureIndexes()`, `seedIfEmpty()` for default ads
 - `ad.stats.js`: Event recording (impression/click) and aggregation queries via `ad_events` collection
-- `ad.routes.js`: `/ad/v2/placements` (GET), `/ad/v2/event` (POST), `/ad/v2/stats` (GET)
+- `ad.routes.js`: `/ad/v1/placements` (GET), `/ad/v1/events` (POST)
 - Uses dedicated DB (`config.ad.dbName`): `skkubus_ads` in production, `skkubus_ads_dev` in development
 
 ### Environment Separation

@@ -1,4 +1,3 @@
-const { ObjectId } = require("mongodb");
 const { getClient } = require("../../lib/db");
 const config = require("../../lib/config");
 

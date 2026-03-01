@@ -128,7 +128,7 @@ describe("Jongro fetchjongro.js", () => {
       const consoleSpy2 = jest.spyOn(console, "log").mockImplementation();
 
       // Use mockImplementation to differentiate list vs location calls by URL
-      const { getJongroBusLocation } = setupModule((url) => {
+      const { getJongroBusLocation } = setupModule(() => {
         // Location endpoints have LOC in URL, list have LIST
         // But in test process.env URLs are undefined, so all calls get undefined URL
         // Just return location-shaped data for all; list calls will error (caught)
