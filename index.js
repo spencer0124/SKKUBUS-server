@@ -2,6 +2,7 @@ const express = require("express");
 const swaggerUi = require("swagger-ui-express");
 const pollers = require("./lib/pollers");
 const { closeClient } = require("./lib/db");
+const { ensureIndexes, seedIfEmpty } = require("./features/ad/ad.data");
 
 let swaggerFile;
 try {
@@ -11,7 +12,8 @@ try {
 }
 
 const app = express();
-const PORT = require("./lib/config").port;
+app.use(express.json());
+const config = require("./lib/config");
 
 // Swagger API docs
 if (swaggerFile) {
@@ -42,20 +44,36 @@ app.use((err, req, res, next) => {
 
 // Start server
 if (require.main === module) {
-  pollers.startAll();
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
+  (async () => {
+    // Initialize ad system (non-fatal: warn and continue on failure)
+    try {
+      await ensureIndexes();
+      await seedIfEmpty();
+    } catch (err) {
+      console.warn("[ad] Startup initialization failed:", err.message);
+    }
 
-  // Graceful shutdown
-  const shutdown = async () => {
-    console.log("Shutting down...");
-    pollers.stopAll();
-    await closeClient();
-    process.exit(0);
-  };
-  process.on("SIGTERM", shutdown);
-  process.on("SIGINT", shutdown);
+    pollers.startAll();
+    app.listen(config.port, () => {
+      console.log(`\n========================================`);
+      console.log(` Mode:  ${config.getModeLabel()}`);
+      console.log(` Port:  ${config.port}`);
+      console.log(` DB:    ${config.mongo.dbName}`);
+      console.log(` Ad DB: ${config.ad.dbName}`);
+      console.log(` API:   ${config.useProdApi ? "PROD" : "DEV"}`);
+      console.log(`========================================\n`);
+    });
+
+    // Graceful shutdown
+    const shutdown = async () => {
+      console.log("Shutting down...");
+      pollers.stopAll();
+      await closeClient();
+      process.exit(0);
+    };
+    process.on("SIGTERM", shutdown);
+    process.on("SIGINT", shutdown);
+  })();
 }
 
 module.exports = app;

@@ -18,6 +18,25 @@ jest.mock("../features/bus/campus.data", () => ({
   getData: jest.fn().mockResolvedValue([]),
 }));
 
+// Mock ad modules to avoid MongoDB connection
+jest.mock("../features/ad/ad.data", () => ({
+  getPlacements: jest.fn().mockResolvedValue({
+    splash: { type: "image", imageUrl: "", linkUrl: "", enabled: true, adId: "000000000000000000000001" },
+  }),
+  ensureIndexes: jest.fn().mockResolvedValue(),
+  seedIfEmpty: jest.fn().mockResolvedValue(),
+  clearCache: jest.fn(),
+  weightedRandomSelect: jest.fn(),
+  getAdsCollection: jest.fn(),
+  getEventsCollection: jest.fn(),
+  FALLBACK_PLACEMENTS: {},
+}));
+
+jest.mock("../features/ad/ad.stats", () => ({
+  recordEvent: jest.fn().mockResolvedValue(),
+  getStats: jest.fn().mockResolvedValue({}),
+}));
+
 const request = require("supertest");
 const app = require("../index");
 

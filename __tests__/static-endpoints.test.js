@@ -1,5 +1,51 @@
 jest.useFakeTimers();
 
+// Mock ad modules before requiring the app
+jest.mock("../features/ad/ad.data", () => ({
+  getPlacements: jest.fn().mockResolvedValue({
+    splash: {
+      type: "image",
+      imageUrl: "https://i.imgur.com/VEJpasQ.png",
+      linkUrl: "http://pf.kakao.com/_cjxexdG",
+      enabled: true,
+      adId: "000000000000000000000001",
+    },
+    main_banner: {
+      type: "text",
+      text: "스꾸버스 카카오톡 채널 - 문의하기",
+      linkUrl: "http://pf.kakao.com/_cjxexdG",
+      enabled: true,
+      adId: "000000000000000000000002",
+    },
+    main_notice: {
+      type: "text",
+      text: "인자셔틀 - 토/일/공휴일 운행없음",
+      linkUrl: "https://forms.gle/3Zmytp6z15ww1KXXA",
+      enabled: false,
+      adId: "000000000000000000000003",
+    },
+    bus_bottom: {
+      type: "image",
+      imageUrl: "",
+      linkUrl: "http://pf.kakao.com/_cjxexdG",
+      enabled: false,
+      adId: "000000000000000000000004",
+    },
+  }),
+  ensureIndexes: jest.fn().mockResolvedValue(),
+  seedIfEmpty: jest.fn().mockResolvedValue(),
+  clearCache: jest.fn(),
+  weightedRandomSelect: jest.fn(),
+  getAdsCollection: jest.fn(),
+  getEventsCollection: jest.fn(),
+  FALLBACK_PLACEMENTS: {},
+}));
+
+jest.mock("../features/ad/ad.stats", () => ({
+  recordEvent: jest.fn().mockResolvedValue(),
+  getStats: jest.fn().mockResolvedValue({}),
+}));
+
 const request = require("supertest");
 const app = require("../index");
 
@@ -55,27 +101,68 @@ describe("GET /mobile/v1/mainpage/scrollcomponent", () => {
   });
 });
 
-describe("GET /ad/v1/addetail", () => {
-  it("returns ad detail with required fields", async () => {
-    const res = await request(app).get("/ad/v1/addetail");
+describe("GET /ad/v1/placements", () => {
+  it("returns only enabled placements with metaData count", async () => {
+    const res = await request(app).get("/ad/v1/placements");
     expect(res.status).toBe(200);
-    const requiredFields = [
-      "image",
-      "image2",
-      "link",
-      "showtext",
-      "text",
-      "showtext2",
-      "text2",
-    ];
-    requiredFields.forEach((field) => {
-      expect(res.body).toHaveProperty(field);
+    expect(res.body).toHaveProperty("metaData");
+    expect(res.body.metaData.count).toBe(2); // only splash + main_banner enabled
+    expect(res.body).toHaveProperty("placements");
+  });
+
+  it("each placement has required fields including adId", async () => {
+    const res = await request(app).get("/ad/v1/placements");
+    const placements = res.body.placements;
+    Object.values(placements).forEach((p) => {
+      expect(p).toHaveProperty("type");
+      expect(p).toHaveProperty("linkUrl");
+      expect(p).toHaveProperty("enabled", true);
+      expect(p).toHaveProperty("adId");
     });
   });
 
-  it("showtext is boolean", async () => {
-    const res = await request(app).get("/ad/v1/addetail");
-    expect(typeof res.body.showtext).toBe("boolean");
-    expect(typeof res.body.showtext2).toBe("boolean");
+  it("does not include disabled placements", async () => {
+    const res = await request(app).get("/ad/v1/placements");
+    const keys = Object.keys(res.body.placements);
+    expect(keys).not.toContain("main_notice");
+    expect(keys).not.toContain("bus_bottom");
+  });
+});
+
+describe("POST /ad/v1/events", () => {
+  it("records a valid event with adId", async () => {
+    const res = await request(app)
+      .post("/ad/v1/events")
+      .send({ placement: "splash", event: "view" });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      placement: "splash",
+      event: "view",
+      adId: "000000000000000000000001",
+    });
+  });
+
+  it("accepts explicit adId from client", async () => {
+    const res = await request(app)
+      .post("/ad/v1/events")
+      .send({
+        placement: "splash",
+        event: "click",
+        adId: "aaaaaaaaaaaaaaaaaaaaaaaa",
+      });
+    expect(res.status).toBe(200);
+    expect(res.body.adId).toBe("aaaaaaaaaaaaaaaaaaaaaaaa");
+  });
+
+  it("rejects missing fields", async () => {
+    const res = await request(app).post("/ad/v1/events").send({});
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects unknown placement", async () => {
+    const res = await request(app)
+      .post("/ad/v1/events")
+      .send({ placement: "unknown", event: "view" });
+    expect(res.status).toBe(400);
   });
 });
