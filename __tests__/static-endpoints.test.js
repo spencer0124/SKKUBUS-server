@@ -46,6 +46,13 @@ jest.mock("../features/ad/ad.stats", () => ({
   getStats: jest.fn().mockResolvedValue({}),
 }));
 
+// Mock Firebase Admin SDK to avoid initialization
+jest.mock("../lib/firebase", () => ({
+  auth: jest.fn().mockReturnValue({
+    verifyIdToken: jest.fn().mockResolvedValue({ uid: "test-uid" }),
+  }),
+}));
+
 const request = require("supertest");
 const app = require("../index");
 

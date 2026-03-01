@@ -1,7 +1,10 @@
 const express = require("express");
+const helmet = require("helmet");
+const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 const swaggerUi = require("swagger-ui-express");
 const pollers = require("./lib/pollers");
 const { closeClient } = require("./lib/db");
+const verifyToken = require("./lib/authMiddleware");
 const { ensureIndexes, seedIfEmpty } = require("./features/ad/ad.data");
 
 let swaggerFile;
@@ -12,6 +15,7 @@ try {
 }
 
 const app = express();
+app.use(helmet());
 app.use(express.json());
 const config = require("./lib/config");
 
@@ -20,6 +24,16 @@ if (swaggerFile) {
   app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerFile, { explorer: true }));
 }
 
+// Rate limiters (uid-based to handle shared campus WiFi)
+const searchLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  keyGenerator: (req) => req.uid || ipKeyGenerator(req.ip),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests" },
+});
+
 // Feature routes
 const searchRoute = require("./features/search/search.routes");
 const { hsscRoutes, jongroRoutes, campusRoutes } = require("./features/bus/bus.routes");
@@ -27,13 +41,13 @@ const stationRoute = require("./features/station/station.routes");
 const mobileRoute = require("./features/mobile/mobile.routes");
 const adRoute = require("./features/ad/ad.routes");
 
-app.use("/search", searchRoute);
+app.use("/search", verifyToken, searchLimiter, searchRoute);
 app.use("/bus/hssc", hsscRoutes);
 app.use("/bus/hssc_new", hsscRoutes);
 app.use("/bus/jongro", jongroRoutes);
 app.use("/station", stationRoute);
 app.use("/mobile/", mobileRoute);
-app.use("/ad/", adRoute);
+app.use("/ad/", verifyToken, adRoute);
 app.use("/campus/", campusRoutes);
 
 // Shared error handler

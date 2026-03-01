@@ -1,8 +1,18 @@
 const express = require("express");
+const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 const router = express.Router();
 const asyncHandler = require("../../lib/asyncHandler");
 const { getPlacements } = require("./ad.data");
-const { recordEvent, getStats } = require("./ad.stats");
+const { recordEvent } = require("./ad.stats");
+
+const eventLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  keyGenerator: (req) => req.uid || ipKeyGenerator(req.ip),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests" },
+});
 
 router.get(
   "/v1/placements",
@@ -24,6 +34,7 @@ router.get(
 
 router.post(
   "/v1/events",
+  eventLimiter,
   asyncHandler(async (req, res) => {
     const { placement, event, adId } = req.body;
 
@@ -38,6 +49,11 @@ router.post(
       return res
         .status(400)
         .json({ error: `event must be one of: ${validEvents.join(", ")}` });
+    }
+
+    // Validate adId format if provided (must be valid MongoDB ObjectId)
+    if (adId && !/^[0-9a-fA-F]{24}$/.test(adId)) {
+      return res.status(400).json({ error: "adId must be a valid 24-character hex string" });
     }
 
     // Validate placement exists using cached data

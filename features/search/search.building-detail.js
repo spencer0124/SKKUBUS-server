@@ -4,6 +4,11 @@ const searchOption1_building =
   "https://www.skku.edu/skku/about/campusInfo/campusMap.do?mode=buildInfo";
 
 async function option1_detail(buildNo, id) {
+  // Validate params are simple identifiers before building URL
+  if (!/^[A-Za-z0-9_-]+$/.test(buildNo) || !/^[A-Za-z0-9_-]+$/.test(id)) {
+    return { item: null, availableFloor: [], floorItem: {} };
+  }
+
   try {
     const response = await axios.get(
       `${searchOption1_building}&buildNo=${buildNo}&id=${id}`
