@@ -2,44 +2,61 @@ const { getClient } = require("../../lib/db");
 const config = require("../../lib/config");
 const moment = require("moment-timezone");
 
-async function getData(bustype) {
+// --- Collection name resolution ---
+
+const DAY_TO_SCHEDULE = {
+  monday: "weekday",
+  tuesday: "weekday",
+  wednesday: "weekday",
+  thursday: "weekday",
+  friday: "friday",
+  saturday: "weekend",
+  sunday: "weekend",
+};
+
+function resolveCollectionName(bustype) {
+  if (!bustype || typeof bustype !== "string") return null;
+  const parts = bustype.split("_");
+  if (parts.length !== 2) return null;
+  const [direction, day] = parts;
+  const schedule = DAY_TO_SCHEDULE[day];
+  if (!schedule) return null;
+  return config.mongo.collections[`${direction}_${schedule}`] || null;
+}
+
+// --- DB helper ---
+
+function getCollection(collectionName) {
   const client = getClient();
-  let result = await client.connect();
-  let db = result.db(config.mongo.dbName);
+  return client.db(config.mongo.dbName).collection(collectionName);
+}
 
-  var collectionname = config.mongo.collections.INJA_weekday;
+// --- In-memory cache (keyed by collection name, 60s TTL) ---
 
-  if (
-    bustype == "INJA_monday" ||
-    bustype == "INJA_tuesday" ||
-    bustype == "INJA_wednesday" ||
-    bustype == "INJA_thursday"
-  ) {
-    collectionname = config.mongo.collections.INJA_weekday;
-  } else if (bustype == "INJA_friday") {
-    collectionname = config.mongo.collections.INJA_friday;
-  } else if (bustype == "INJA_saturday" || bustype == "INJA_sunday") {
-    collectionname = config.mongo.collections.INJA_weekend;
-  } else if (
-    bustype == "JAIN_monday" ||
-    bustype == "JAIN_tuesday" ||
-    bustype == "JAIN_wednesday" ||
-    bustype == "JAIN_thursday"
-  ) {
-    collectionname = config.mongo.collections.JAIN_weekday;
-  } else if (bustype == "JAIN_friday") {
-    collectionname = config.mongo.collections.JAIN_friday;
-  } else if (bustype == "JAIN_saturday" || bustype == "JAIN_sunday") {
-    collectionname = config.mongo.collections.JAIN_weekend;
+const CACHE_TTL_MS = 60_000;
+const cache = new Map();
+
+function getCached(collectionName) {
+  const entry = cache.get(collectionName);
+  if (entry && Date.now() - entry.time < CACHE_TTL_MS) {
+    return entry.data;
   }
+  return null;
+}
 
-  let collection = db.collection(collectionname);
-  let documents = await collection.find().sort({ index: 1 }).toArray();
+function setCache(collectionName, data) {
+  cache.set(collectionName, { data, time: Date.now() });
+}
+
+function clearCache() {
+  cache.clear();
+}
+
+// --- isFastestBus computation (pure, time-dependent) ---
+
+function findNextBusId(documents) {
   const currentTime = moment().tz("Asia/Seoul");
-
-  await collection.updateMany({}, { $set: { isFastestBus: false } });
-
-  let availableBuses = documents.filter((doc) => doc.isAvailableBus);
+  const availableBuses = documents.filter((doc) => doc.isAvailableBus);
 
   const nextBus = availableBuses.reduce((acc, doc) => {
     const busTime = moment.tz(
@@ -61,14 +78,37 @@ async function getData(bustype) {
     return acc;
   }, null);
 
-  if (nextBus) {
-    await collection.updateOne(
-      { _id: nextBus._id },
-      { $set: { isFastestBus: true } }
-    );
-  }
-
-  return await collection.find().sort({ index: 1 }).toArray();
+  return nextBus ? nextBus._id : null;
 }
 
-module.exports = { getData };
+function applyFastestBusFlag(documents) {
+  const nextBusId = findNextBusId(documents);
+  return documents.map((doc) => ({
+    ...doc,
+    isFastestBus:
+      nextBusId != null && String(doc._id) === String(nextBusId),
+  }));
+}
+
+// --- Main data access ---
+
+async function getData(bustype) {
+  const collectionName = resolveCollectionName(bustype);
+  if (!collectionName) return [];
+
+  let documents = getCached(collectionName);
+  if (!documents) {
+    const collection = getCollection(collectionName);
+    documents = await collection.find().sort({ index: 1 }).toArray();
+    setCache(collectionName, documents);
+  }
+
+  return applyFastestBusFlag(documents);
+}
+
+module.exports = {
+  getData,
+  resolveCollectionName,
+  findNextBusId,
+  clearCache,
+};
