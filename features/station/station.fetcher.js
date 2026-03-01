@@ -1,7 +1,7 @@
 const axios = require("axios");
 const pollers = require("../../lib/pollers");
 
-var arrmsg1 = "정보 없음";
+let arrmsg1 = "정보 없음";
 
 async function updateStation() {
   try {
@@ -10,12 +10,11 @@ async function updateStation() {
     const apiData = response.data.msgBody.itemList;
     arrmsg1 = apiData[0].arrmsg1;
   } catch (error) {
-    console.error(error);
+    console.error("[station] Failed to update station info:", error.message);
   }
 }
 
 function getStationInfo() {
-  console.log("Serving getStationInfo: ", arrmsg1);
   return arrmsg1;
 }
 
