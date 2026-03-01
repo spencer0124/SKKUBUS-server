@@ -34,7 +34,7 @@ function toLinearSequence(seq) {
 
 async function updateHSSCBusList() {
   try {
-    const response = await axios.get(config.api.hsscNew);
+    const response = await axios.get(config.api.hsscNew, { timeout: 10000 });
 
     const apiData = response.data;
     const currentTime = moment().tz("Asia/Seoul");
@@ -89,6 +89,8 @@ function getHSSCBusList() {
   return filteredHSSCStations;
 }
 
-pollers.registerPoller(updateHSSCBusList, 10000, "hssc");
+pollers.registerPoller(() => {
+  updateHSSCBusList().catch((err) => console.error("[hssc]", err.message));
+}, 10000, "hssc");
 
 module.exports = { getHSSCBusList };

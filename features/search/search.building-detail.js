@@ -11,7 +11,8 @@ async function option1_detail(buildNo, id) {
 
   try {
     const response = await axios.get(
-      `${searchOption1_building}&buildNo=${buildNo}&id=${id}`
+      `${searchOption1_building}&buildNo=${buildNo}&id=${id}`,
+      { timeout: 10000 }
     );
 
     let availableFloors = new Set(

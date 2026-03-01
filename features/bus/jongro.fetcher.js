@@ -17,7 +17,7 @@ const busStationMapping = {
 
 async function updateJongroBusLocation(url, busnumber) {
   try {
-    const response = await axios.get(url);
+    const response = await axios.get(url, { timeout: 10000 });
     const apiData = response.data.msgBody.itemList;
     const currentTime = moment().tz("Asia/Seoul").toDate();
 
@@ -68,7 +68,7 @@ async function updateJongroBusLocation(url, busnumber) {
 
 async function updateJongroBusList(url, busnumber) {
   try {
-    const response = await axios.get(url);
+    const response = await axios.get(url, { timeout: 10000 });
     const apiData = response.data.msgBody.itemList;
 
     filteredBusStations[busnumber] = apiData.map((item) => {

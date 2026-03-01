@@ -32,7 +32,8 @@ async function option1(inputQuery, campusType) {
   try {
     const encodedQuery = encodeQuery(inputQuery);
     const response = await axios.get(
-      `${searchOption1_building}${encodedQuery}&campusCd=${campusType}`
+      `${searchOption1_building}${encodedQuery}&campusCd=${campusType}`,
+      { timeout: 10000 }
     );
     return response.data.buildItems.map(processBuildItem);
   } catch (error) {

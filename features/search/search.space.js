@@ -1,4 +1,5 @@
 const axios = require("axios");
+const { encodeQuery } = require("./search.helpers");
 
 const searchOption3_spaceList =
   "https://www.skku.edu/skku/about/campusInfo/campusMap.do?mode=spaceList&mode=spaceList";
@@ -25,7 +26,8 @@ const processBuildItem = (item) => {
 async function option3(inputQuery, campusType) {
   try {
     const response = await axios.get(
-      `${searchOption3_spaceList}&srSearchValue=${inputQuery}&campusCd=${campusType}`
+      `${searchOption3_spaceList}&srSearchValue=${encodeQuery(inputQuery)}&campusCd=${campusType}`,
+      { timeout: 10000 }
     );
     return response.data.items.map(processBuildItem);
   } catch (error) {

@@ -3,7 +3,7 @@ const helmet = require("helmet");
 const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 const swaggerUi = require("swagger-ui-express");
 const pollers = require("./lib/pollers");
-const { closeClient } = require("./lib/db");
+const { closeClient, ping: pingDb } = require("./lib/db");
 const verifyToken = require("./lib/authMiddleware");
 const { ensureIndexes, seedIfEmpty } = require("./features/ad/ad.data");
 
@@ -16,7 +16,7 @@ try {
 
 const app = express();
 app.use(helmet());
-app.use(express.json());
+app.use(express.json({ limit: "100kb" }));
 const config = require("./lib/config");
 
 // Swagger API docs
@@ -64,6 +64,14 @@ app.use((err, req, res, next) => {
 // Start server
 if (require.main === module) {
   (async () => {
+    // Verify MongoDB connectivity (non-fatal: bus/station/search work without DB)
+    try {
+      await pingDb();
+      console.log("[db] MongoDB connected");
+    } catch (err) {
+      console.warn("[db] MongoDB connection failed:", err.message);
+    }
+
     // Initialize ad system (non-fatal: warn and continue on failure)
     try {
       await ensureIndexes();
@@ -83,9 +91,14 @@ if (require.main === module) {
       console.log(`========================================\n`);
     });
 
-    // Graceful shutdown
+    // Graceful shutdown (5s timeout to avoid hanging before Docker SIGKILL)
     const shutdown = async () => {
       console.log("Shutting down...");
+      const forceExit = setTimeout(() => {
+        console.error("Shutdown timed out, forcing exit");
+        process.exit(1);
+      }, 5000);
+      forceExit.unref();
       pollers.stopAll();
       await closeClient();
       process.exit(0);

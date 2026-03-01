@@ -6,7 +6,7 @@ let arrmsg1 = "정보 없음";
 
 async function updateStation() {
   try {
-    const response = await axios.get(config.api.stationHyehwa);
+    const response = await axios.get(config.api.stationHyehwa, { timeout: 10000 });
     const apiData = response.data.msgBody.itemList;
     arrmsg1 = apiData[0].arrmsg1;
   } catch (error) {
@@ -18,6 +18,8 @@ function getStationInfo() {
   return arrmsg1;
 }
 
-pollers.registerPoller(updateStation, 15000, "station");
+pollers.registerPoller(() => {
+  updateStation().catch((err) => console.error("[station]", err.message));
+}, 15000, "station");
 
 module.exports = { getStationInfo };
