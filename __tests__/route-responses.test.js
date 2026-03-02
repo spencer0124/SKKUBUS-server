@@ -226,13 +226,13 @@ describe("Jongro routes", () => {
   });
 });
 
-describe("Station routes", () => {
-  describe("GET /station/01592", () => {
+describe("Bus station routes", () => {
+  describe("GET /bus/station/01592", () => {
     it("returns meta with 2 station data items", async () => {
       getHSSCBusList.mockReturnValue([]);
       getStationInfo.mockReturnValue("3분후 도착");
 
-      const res = await request(app).get("/station/01592");
+      const res = await request(app).get("/bus/station/01592");
       expect(res.status).toBe(200);
       expect(res.body.meta).toMatchObject({
         lang: "ko",
@@ -245,7 +245,7 @@ describe("Station routes", () => {
       getHSSCBusList.mockReturnValue([]);
       getStationInfo.mockReturnValue("5분 후 도착");
 
-      const res = await request(app).get("/station/01592");
+      const res = await request(app).get("/bus/station/01592");
       expect(res.body.data[0].busNm).toBe("종로07");
       expect(res.body.data[0].msg1Message).toBe("5분 후 도착");
     });
@@ -253,16 +253,16 @@ describe("Station routes", () => {
     it("second station data is 인사캠셔틀", async () => {
       getHSSCBusList.mockReturnValue([]);
 
-      const res = await request(app).get("/station/01592");
+      const res = await request(app).get("/bus/station/01592");
       expect(res.body.data[1].busNm).toBe("인사캠셔틀");
     });
   });
 
-  describe("GET /station/99999 (unknown station)", () => {
+  describe("GET /bus/station/99999 (unknown station)", () => {
     it("returns empty array", async () => {
       getHSSCBusList.mockReturnValue([]);
 
-      const res = await request(app).get("/station/99999");
+      const res = await request(app).get("/bus/station/99999");
       expect(res.status).toBe(200);
       expect(res.body.data).toEqual([]);
     });

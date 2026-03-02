@@ -99,10 +99,10 @@ const appRoute = require("./features/app/app.routes");
 app.use("/search", verifyToken, searchLimiter, searchRoute);
 app.use("/bus/hssc", generalLimiter, hsscRoutes);
 app.use("/bus/jongro", generalLimiter, jongroRoutes);
-app.use("/station", generalLimiter, stationRoute);
+app.use("/bus/station", generalLimiter, stationRoute);
+app.use("/bus/schedule", generalLimiter, campusRoutes);
 app.use("/ui", generalLimiter, uiRoute);
 app.use("/ad", verifyToken, adRoute);
-app.use("/campus", generalLimiter, campusRoutes);
 app.use("/app", generalLimiter, appRoute);
 
 // 404 handler (after all routes, before error handler)

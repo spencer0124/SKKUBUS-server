@@ -5,7 +5,7 @@ const { option1 } = require("./search.building");
 const { option1_detail } = require("./search.building-detail");
 const { option3 } = require("./search.space");
 
-router.get("/all/:query", asyncHandler(async (req, res) => {
+router.get("/buildings/:query", asyncHandler(async (req, res) => {
   const option1Hssc = await option1(req.params.query, 1);
   const option1Nsc = await option1(req.params.query, 2);
 

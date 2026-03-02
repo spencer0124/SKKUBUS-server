@@ -26,11 +26,11 @@ The server API has been migrated with 4 major changes:
 | `/bus/hssc/v1/busstation` | `/bus/hssc/stations` | GET |
 | `/bus/jongro/v1/buslocation/:line` | `/bus/jongro/location/:line` | GET |
 | `/bus/jongro/v1/busstation/:line` | `/bus/jongro/stations/:line` | GET |
-| `/campus/v1/campus/:bustype` | `/campus/:bustype` | GET |
-| `/station/v1/:stationId` | `/station/:stationId` | GET |
+| `/campus/v1/campus/:bustype` | `/bus/schedule/:bustype` | GET |
+| `/station/v1/:stationId` | `/bus/station/:stationId` | GET |
 | `/mobile/v1/mainpage/buslist` | `/ui/home/buslist` | GET |
 | `/mobile/v1/mainpage/scrollcomponent` | `/ui/home/scroll` | GET |
-| `/search/all/:inputquery` | `/search/all/:query` | GET |
+| `/search/all/:inputquery` | `/search/buildings/:query` | GET |
 | `/search/detail/:buildNo/:id` | `/search/detail/:buildNo/:id` | GET |
 | `/search/option3/:inputquery` | `/search/facilities/:query` | GET |
 | `/ad/v1/placements` | `/ad/placements` | GET |
@@ -196,7 +196,7 @@ Old: /bus/jongro/v1/busstation/:line
 
 ---
 
-### GET /campus/:bustype
+### GET /bus/schedule/:bustype
 
 ```
 Old: /campus/v1/campus/:bustype
@@ -216,7 +216,7 @@ Old: /campus/v1/campus/:bustype
 
 ---
 
-### GET /station/:stationId
+### GET /bus/station/:stationId
 
 ```
 Old: /station/v1/:stationId
@@ -338,7 +338,7 @@ Old: /mobile/v1/mainpage/scrollcomponent
 
 ---
 
-### GET /search/all/:query
+### GET /search/buildings/:query
 
 ```
 Old: /search/all/:inputquery
@@ -607,10 +607,12 @@ Based on the fetch files from Step 1f in `production-ready.md`:
 | `lib/app/utils/api_fetch/api_client.dart` | Add `Accept-Language`, `X-App-Version`, `X-Platform` headers |
 | `lib/app/utils/api_fetch/bus_location.dart` | URL: drop `/v1/buslocation` → `/location`. Parse: `json['data']` |
 | `lib/app/utils/api_fetch/bus_stationlist.dart` | URL: drop `/v1/busstation` → `/stations`. Parse: `json['data']` instead of `json['stations']`, `json['meta']` instead of `json['metaData']` |
-| `lib/app/utils/api_fetch/fetch_station.dart` | URL: drop `/v1/`. Parse: `json['data']` instead of `json['stationData']`, camelCase fields |
+| `lib/app/utils/api_fetch/fetch_station.dart` | URL: `/station/v1/:id` → `/bus/station/:id`. Parse: `json['data']` instead of `json['stationData']`, camelCase fields |
 | `lib/app/utils/api_fetch/mainpage_buslist.dart` | URL: `/mobile/v1/mainpage/buslist` → `/ui/home/buslist`. Parse: `json['data']` instead of `json['busList']` |
 | `lib/app/utils/api_fetch/fetch_ad.dart` | URL: drop `/v1/`. Parse: `json['data']` instead of `json['placements']`, error: `json['error']['message']` |
+| `lib/app/utils/api_fetch/search_all.dart` (or equivalent) | URL: `/search/all/` → `/search/buildings/`. Parse: `json['data']` instead of `json['option1Items']`/`json['option3Items']` |
 | `lib/app/utils/api_fetch/search_option3.dart` | URL: `/search/option3/` → `/search/facilities/`. Parse: `json['data']` instead of `json['option3Items']` |
+| `lib/app/utils/api_fetch/fetch_campus.dart` (or equivalent) | URL: `/campus/v1/campus/` → `/bus/schedule/`. Parse: `json['data']` instead of `json['result']` |
 | `lib/app/utils/constants.dart` | *(Optional)* Update base URL if domain changes |
 | Dart models for station | Rename snake_case fields to camelCase (see Section 3 station table) |
 | Dart models for search | Rename snake_case meta fields to camelCase |
@@ -627,11 +629,11 @@ After Flutter update, verify each endpoint:
 - [ ] `GET /bus/hssc/stations` → `json['data']` is array, `json['meta']['currentTime']` exists
 - [ ] `GET /bus/jongro/location/07` → `json['data']` is array
 - [ ] `GET /bus/jongro/stations/07` → `json['data']` is array with ETA
-- [ ] `GET /campus/INJA_weekday` → `json['data']` is array
-- [ ] `GET /station/01592` → `json['data']` has camelCase fields (`msg1Message`, not `msg1_message`)
+- [ ] `GET /bus/schedule/INJA_weekday` → `json['data']` is array
+- [ ] `GET /bus/station/01592` → `json['data']` has camelCase fields (`msg1Message`, not `msg1_message`)
 - [ ] `GET /ui/home/buslist` → `json['data']` is array of 4
 - [ ] `GET /ui/home/scroll` → `json['data']` is array of 3
-- [ ] `GET /search/all/경영` → `json['data']['buildings']` and `json['data']['facilities']`
+- [ ] `GET /search/buildings/경영` → `json['data']['buildings']` and `json['data']['facilities']`
 - [ ] `GET /search/facilities/경영` → `json['data']['hssc']` and `json['data']['nsc']`
 - [ ] `GET /search/detail/21201/100` → `json['data']['item']`
 - [ ] `GET /ad/placements` → `json['data']` is object with placement keys
@@ -639,7 +641,7 @@ After Flutter update, verify each endpoint:
 - [ ] `POST /ad/events` with invalid body → `json['error']['code']` is `"VALIDATION_ERROR"`
 - [ ] `GET /app/config` → `json['data']['ios']` and `json['data']['android']` each have `minVersion`, `latestVersion`, `updateUrl`
 - [ ] `GET /app/config` → `json['data']['forceUpdate']` is boolean
-- [ ] Old paths (`/bus/hssc/v1/buslocation`, `/mobile/v1/...`, `/ad/v1/...`) → 404 JSON: `{ "error": { "code": "NOT_FOUND", "message": "GET /path not found" } }`
+- [ ] Old paths (`/bus/hssc/v1/buslocation`, `/mobile/v1/...`, `/ad/v1/...`, `/station/...`, `/campus/...`, `/search/all/...`) → 404 JSON: `{ "error": { "code": "NOT_FOUND", "message": "GET /path not found" } }`
 - [ ] `Accept-Language: en` → `/ui/home/buslist` returns English text
 - [ ] Response header `X-Request-Id` is present (UUID format)
 - [ ] Response header `X-Response-Time` is present (e.g., `12.3ms`)

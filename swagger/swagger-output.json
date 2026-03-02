@@ -34,7 +34,7 @@
         }
       }
     },
-    "/search/all/{query}": {
+    "/search/buildings/{query}": {
       "get": {
         "description": "",
         "parameters": [
@@ -215,12 +215,39 @@
         }
       }
     },
-    "/station/{stationId}": {
+    "/bus/station/{stationId}": {
       "get": {
         "description": "",
         "parameters": [
           {
             "name": "stationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/bus/schedule/{bustype}": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "bustype",
             "in": "path",
             "required": true,
             "schema": {
@@ -334,33 +361,6 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "/campus/{bustype}": {
-      "get": {
-        "description": "",
-        "parameters": [
-          {
-            "name": "bustype",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
           }
         }
       }
