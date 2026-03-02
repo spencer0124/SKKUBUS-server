@@ -1,5 +1,6 @@
 const axios = require("axios");
 const moment = require("moment-timezone");
+require("moment/locale/ko");
 const pollers = require("../../lib/pollers");
 const config = require("../../lib/config");
 const logger = require("../../lib/logger");

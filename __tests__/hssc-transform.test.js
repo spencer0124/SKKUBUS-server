@@ -6,9 +6,11 @@ afterEach(() => {
 });
 
 // The API sends Korean AM/PM format (오전/오후), and fetchhssc_new.js
-// parses with moment(get_date, "YYYY-MM-DD a h:mm:ss", "ko")
+// parses with moment(get_date, "YYYY-MM-DD a h:mm:ss", "ko").
+// We explicitly require the Korean locale so this works on CI (UTC).
 function koreanNow(offsetMinutes = 0) {
   const moment = require("moment-timezone");
+  require("moment/locale/ko");
   const t = moment().tz("Asia/Seoul");
   if (offsetMinutes) t.subtract(offsetMinutes, "minutes");
   return t.locale("ko").format("YYYY-MM-DD a h:mm:ss");
