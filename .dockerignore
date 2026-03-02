@@ -1,0 +1,17 @@
+node_modules
+.git
+.DS_Store
+.env
+*.env
+npm-debug.log
+coverage/
+__tests__/
+__fixtures__/
+jest.config.js
+eslint.config.js
+*.md
+.claude/
+swagger/swagger.js
+docs/
+scripts/
+yarn.lock

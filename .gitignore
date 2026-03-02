@@ -1,4 +1,21 @@
 # .gitignore
-poll.js
+
+# Dependencies
+node_modules/
+
+# Environment
 *.env
 .env
+.mcp.json
+
+# OS
+.DS_Store
+
+# Test coverage
+coverage/
+
+# Collected API fixtures (raw data)
+__fixtures__/
+
+# Lock files (project uses npm/package-lock.json)
+yarn.lock
