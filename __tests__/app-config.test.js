@@ -39,19 +39,24 @@ afterEach(() => {
 });
 
 describe("GET /app/config", () => {
-  it("returns force-update config with meta", async () => {
+  it("returns platform-specific force-update config with meta", async () => {
     const res = await request(app).get("/app/config");
     expect(res.status).toBe(200);
     expect(res.body.meta).toHaveProperty("lang", "ko");
-    expect(res.body.data).toHaveProperty("minVersion");
-    expect(res.body.data).toHaveProperty("latestVersion");
+    expect(res.body.data).toHaveProperty("ios");
+    expect(res.body.data).toHaveProperty("android");
     expect(res.body.data).toHaveProperty("forceUpdate");
-    expect(res.body.data).toHaveProperty("updateUrl");
+    expect(res.body.data.ios).toHaveProperty("minVersion");
+    expect(res.body.data.ios).toHaveProperty("latestVersion");
+    expect(res.body.data.ios).toHaveProperty("updateUrl");
+    expect(res.body.data.android).toHaveProperty("minVersion");
+    expect(res.body.data.android).toHaveProperty("latestVersion");
+    expect(res.body.data.android).toHaveProperty("updateUrl");
   });
 
-  it("forceUpdate is false when minVersion equals latestVersion", async () => {
+  it("forceUpdate is false when all minVersions equal latestVersions", async () => {
     const res = await request(app).get("/app/config");
-    // Default env vars set both to "1.0.0"
+    // Default env vars set all to "1.0.0"
     expect(res.body.data.forceUpdate).toBe(false);
   });
 

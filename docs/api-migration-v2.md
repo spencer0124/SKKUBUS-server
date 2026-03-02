@@ -514,19 +514,49 @@ No old equivalent. Call at app startup (before auth — no token needed).
 {
   "meta": { "lang": "ko" },
   "data": {
-    "minVersion": "1.0.0",
-    "latestVersion": "1.0.0",
-    "forceUpdate": false,
-    "updateUrl": null
+    "ios": {
+      "minVersion": "4.0.0",
+      "latestVersion": "4.1.0",
+      "updateUrl": "https://apps.apple.com/app/id..."
+    },
+    "android": {
+      "minVersion": "4.0.0",
+      "latestVersion": "4.1.0",
+      "updateUrl": "https://play.google.com/store/apps/details?id=..."
+    },
+    "forceUpdate": true
   }
 }
 ```
 
+> **Why platform-specific?** iOS App Store review is slower than Google Play — you may need to bump Android `minVersion` while iOS is still in review. Server-managed `updateUrl` prevents the worst case: an app that needs updating has a broken store link (e.g., after app re-registration or account transfer). Fix via `.env` without an app release.
+
+**`forceUpdate`** is `true` if *either* platform has `minVersion !== latestVersion`. It's a quick global indicator — the actual force-update decision in Flutter uses the platform-specific `minVersion`.
+
 **Flutter implementation**:
-- Call `GET /app/config` at startup
-- Compare `data.minVersion` with current app version (from `package_info_plus`)
-- If current version < `minVersion`, show force-update dialog with `data.updateUrl`
-- If current version < `latestVersion` but >= `minVersion`, show optional update prompt
+```dart
+final config = json['data'];
+final platform = Platform.isIOS ? config['ios'] : config['android'];
+final minVersion = platform['minVersion'];
+final latestVersion = platform['latestVersion'];
+final updateUrl = platform['updateUrl'];
+
+if (currentVersion < minVersion) {
+  // Force update — block app usage, show dialog with updateUrl
+} else if (currentVersion < latestVersion) {
+  // Optional update — dismissible prompt
+}
+```
+
+**Env vars** (in `.env`):
+```
+APP_IOS_MIN_VERSION=4.0.0
+APP_IOS_LATEST_VERSION=4.1.0
+APP_IOS_UPDATE_URL=https://apps.apple.com/app/id...
+APP_ANDROID_MIN_VERSION=4.0.0
+APP_ANDROID_LATEST_VERSION=4.1.0
+APP_ANDROID_UPDATE_URL=https://play.google.com/store/apps/details?id=...
+```
 
 ---
 
@@ -607,6 +637,7 @@ After Flutter update, verify each endpoint:
 - [ ] `GET /ad/placements` → `json['data']` is object with placement keys
 - [ ] `POST /ad/events` with valid body → `json['data']['adId']` exists
 - [ ] `POST /ad/events` with invalid body → `json['error']['code']` is `"VALIDATION_ERROR"`
+- [ ] `GET /app/config` → `json['data']['ios']` and `json['data']['android']` each have `minVersion`, `latestVersion`, `updateUrl`
 - [ ] `GET /app/config` → `json['data']['forceUpdate']` is boolean
 - [ ] Old paths (`/bus/hssc/v1/buslocation`, `/mobile/v1/...`, `/ad/v1/...`) → 404 JSON: `{ "error": { "code": "NOT_FOUND", "message": "GET /path not found" } }`
 - [ ] `Accept-Language: en` → `/ui/home/buslist` returns English text
