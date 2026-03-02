@@ -11,6 +11,7 @@ describe("HSSC edge cases", () => {
     jest.resetModules();
 
     const moment = require("moment-timezone");
+    require("moment/locale/ko");
     const fifteenMinAgo = moment()
       .tz("Asia/Seoul")
       .subtract(15, "minutes")
@@ -61,6 +62,7 @@ describe("HSSC edge cases", () => {
     jest.resetModules();
 
     const moment = require("moment-timezone");
+    require("moment/locale/ko");
     const now = moment().tz("Asia/Seoul").locale("ko").format("YYYY-MM-DD a h:mm:ss");
 
     const mockGet = jest.fn();
