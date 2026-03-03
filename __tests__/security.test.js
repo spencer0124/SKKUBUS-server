@@ -15,7 +15,7 @@ jest.mock("../features/station/station.fetcher", () => ({
 jest.mock("../features/bus/campus.data", () => ({
   getData: jest.fn().mockResolvedValue([]),
   resolveCollectionName: jest.fn(),
-  findNextBusId: jest.fn(),
+  findNextBusTime: jest.fn(),
   clearCache: jest.fn(),
 }));
 
