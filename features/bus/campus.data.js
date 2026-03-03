@@ -54,39 +54,29 @@ function clearCache() {
 
 // --- isFastestBus computation (pure, time-dependent) ---
 
-function findNextBusId(documents) {
+function findNextBusTime(documents) {
   const currentTime = moment().tz("Asia/Seoul");
   const availableBuses = documents.filter((doc) => doc.isAvailableBus);
-
-  const nextBus = availableBuses.reduce((acc, doc) => {
+  let nextTime = null;
+  for (const doc of availableBuses) {
     const busTime = moment.tz(
       `${currentTime.format("YYYY-MM-DD")} ${doc.operatingHours}`,
       "Asia/Seoul"
     );
-    if (
-      busTime.isAfter(currentTime) &&
-      (!acc ||
-        busTime.isBefore(
-          moment.tz(
-            `${currentTime.format("YYYY-MM-DD")} ${acc.operatingHours}`,
-            "Asia/Seoul"
-          )
-        ))
-    ) {
-      return doc;
+    // HH:mm zero-padded format allows lexicographic comparison (e.g., "08:00" < "10:00")
+    if (busTime.isAfter(currentTime) && (!nextTime || doc.operatingHours < nextTime)) {
+      nextTime = doc.operatingHours;
     }
-    return acc;
-  }, null);
-
-  return nextBus ? nextBus._id : null;
+  }
+  return nextTime;
 }
 
 function applyFastestBusFlag(documents) {
-  const nextBusId = findNextBusId(documents);
+  const nextBusTime = findNextBusTime(documents);
   return documents.map((doc) => ({
     ...doc,
     isFastestBus:
-      nextBusId != null && String(doc._id) === String(nextBusId),
+      nextBusTime != null && doc.operatingHours === nextBusTime && doc.isAvailableBus,
   }));
 }
 
@@ -109,6 +99,6 @@ async function getData(bustype) {
 module.exports = {
   getData,
   resolveCollectionName,
-  findNextBusId,
+  findNextBusTime,
   clearCache,
 };
