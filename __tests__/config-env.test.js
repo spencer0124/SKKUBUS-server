@@ -45,9 +45,9 @@ describe("development mode (default)", () => {
     process.env.NODE_ENV = "development";
   });
 
-  it("suffixes DB names with _dev", () => {
+  it("uses prod DB for campus schedules (read-only), dev suffix for ads", () => {
     const config = loadConfig();
-    expect(config.mongo.dbName).toBe("bus_campus_dev");
+    expect(config.mongo.dbName).toBe("bus_campus");
     expect(config.ad.dbName).toBe("skkubus_ads_dev");
   });
 
@@ -87,9 +87,9 @@ describe("staging check mode (dev + prod API)", () => {
     process.env.USE_PROD_API = "true";
   });
 
-  it("uses dev DB with _dev suffix", () => {
+  it("uses prod DB for campus schedules, dev suffix for ads", () => {
     const config = loadConfig();
-    expect(config.mongo.dbName).toBe("bus_campus_dev");
+    expect(config.mongo.dbName).toBe("bus_campus");
     expect(config.ad.dbName).toBe("skkubus_ads_dev");
   });
 
@@ -140,9 +140,9 @@ describe("test mode", () => {
     process.env.NODE_ENV = "test";
   });
 
-  it("suffixes DB names with _test (safety net)", () => {
+  it("uses prod DB for campus schedules, test suffix for ads", () => {
     const config = loadConfig();
-    expect(config.mongo.dbName).toBe("bus_campus_test");
+    expect(config.mongo.dbName).toBe("bus_campus");
     expect(config.ad.dbName).toBe("skkubus_ads_test");
   });
 

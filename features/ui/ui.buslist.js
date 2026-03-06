@@ -16,6 +16,7 @@ function getBusList(lang = "ko") {
       noticeText: null,
       showAnimation: false,
       showNoticeText: false,
+      busConfigId: "hssc",
     },
     {
       title: t("buslist.inja.title", lang),
@@ -29,6 +30,7 @@ function getBusList(lang = "ko") {
       noticeText: t("buslist.inja.notice", lang),
       showAnimation: false,
       showNoticeText: true,
+      busConfigId: "campus",
     },
     {
       title: t("buslist.jongro02.title", lang),
@@ -43,6 +45,7 @@ function getBusList(lang = "ko") {
       noticeText: null,
       showAnimation: false,
       showNoticeText: false,
+      busConfigId: "jongro02",
     },
     {
       title: t("buslist.jongro07.title", lang),
@@ -57,6 +60,7 @@ function getBusList(lang = "ko") {
       noticeText: null,
       showAnimation: false,
       showNoticeText: false,
+      busConfigId: "jongro07",
     },
   ];
 }
