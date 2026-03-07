@@ -3,6 +3,7 @@ const router = express.Router();
 const asyncHandler = require("../../lib/asyncHandler");
 const { getBusList } = require("./ui.buslist");
 const { getScrollComponent } = require("./ui.scroll");
+const { getCampusServices } = require("./ui.campus");
 
 router.get("/home/buslist", asyncHandler(async (req, res) => {
   const busList = getBusList(req.lang);
@@ -11,6 +12,11 @@ router.get("/home/buslist", asyncHandler(async (req, res) => {
 
 router.get("/home/scroll", asyncHandler(async (req, res) => {
   const items = getScrollComponent(req.lang);
+  res.success(items, { itemCount: items.length });
+}));
+
+router.get("/home/campus", asyncHandler(async (req, res) => {
+  const items = getCampusServices(req.lang);
   res.success(items, { itemCount: items.length });
 }));
 
