@@ -3,7 +3,7 @@ const { t } = require("../../lib/i18n");
 /**
  * Bump this whenever config data changes so clients know to re-fetch.
  */
-const CONFIG_VERSION = 1;
+const CONFIG_VERSION = 2;
 
 /**
  * Returns all bus route configurations keyed by route id.
@@ -85,14 +85,14 @@ function getBusConfigs(lang = "ko") {
       schedule: {
         directions: [
           {
-            id: "INJA",
+            id: "inja",
             label: t("busconfig.direction.inja", lang),
-            endpoint: "/bus/campus/INJA",
+            endpoint: "/bus/campus/inja/{dayType}",
           },
           {
-            id: "JAIN",
+            id: "jain",
             label: t("busconfig.direction.jain", lang),
-            endpoint: "/bus/campus/JAIN",
+            endpoint: "/bus/campus/jain/{dayType}",
           },
         ],
         serviceCalendar: {

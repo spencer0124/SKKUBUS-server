@@ -14,14 +14,12 @@ const DAY_TO_SCHEDULE = {
   sunday: "weekend",
 };
 
-function resolveCollectionName(bustype) {
-  if (!bustype || typeof bustype !== "string") return null;
-  const parts = bustype.split("_");
-  if (parts.length !== 2) return null;
-  const [direction, day] = parts;
+function resolveCollectionName(direction, day) {
+  if (!direction || !day) return null;
   const schedule = DAY_TO_SCHEDULE[day];
   if (!schedule) return null;
-  return config.mongo.collections[`${direction}_${schedule}`] || null;
+  const key = `${direction.toUpperCase()}_${schedule}`;
+  return config.mongo.collections[key] || null;
 }
 
 // --- DB helper ---
@@ -82,8 +80,8 @@ function applyFastestBusFlag(documents) {
 
 // --- Main data access ---
 
-async function getData(bustype) {
-  const collectionName = resolveCollectionName(bustype);
+async function getData(direction, dayType) {
+  const collectionName = resolveCollectionName(direction, dayType);
   if (!collectionName) return [];
 
   let documents = getCached(collectionName);

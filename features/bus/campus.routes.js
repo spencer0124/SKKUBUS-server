@@ -10,9 +10,10 @@ router.get("/eta", asyncHandler(async (req, res) => {
   res.success(data);
 }));
 
-router.get("/:bustype", asyncHandler(async (req, res) => {
-  const { bustype } = req.params;
-  const response = await getData(bustype);
+router.get("/:direction/:dayType", asyncHandler(async (req, res) => {
+  const direction = req.params.direction.toLowerCase();
+  const dayType = req.params.dayType.toLowerCase();
+  const response = await getData(direction, dayType);
   res.success(response);
 }));
 
