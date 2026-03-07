@@ -33,51 +33,50 @@ afterEach(() => {
 describe("resolveCollectionName", () => {
   it("maps INJA weekdays (mon-thu) to INJA_weekday collection", () => {
     for (const day of ["monday", "tuesday", "wednesday", "thursday"]) {
-      expect(resolveCollectionName(`INJA_${day}`)).toBe("inja_weekday_col");
+      expect(resolveCollectionName("inja", day)).toBe("inja_weekday_col");
     }
   });
 
-  it("maps INJA_friday to INJA_friday collection", () => {
-    expect(resolveCollectionName("INJA_friday")).toBe("inja_friday_col");
+  it("maps INJA friday to INJA_friday collection", () => {
+    expect(resolveCollectionName("inja", "friday")).toBe("inja_friday_col");
   });
 
   it("maps INJA weekend days to INJA_weekend collection", () => {
-    expect(resolveCollectionName("INJA_saturday")).toBe("inja_weekend_col");
-    expect(resolveCollectionName("INJA_sunday")).toBe("inja_weekend_col");
+    expect(resolveCollectionName("inja", "saturday")).toBe("inja_weekend_col");
+    expect(resolveCollectionName("inja", "sunday")).toBe("inja_weekend_col");
   });
 
   it("maps JAIN directions identically", () => {
-    expect(resolveCollectionName("JAIN_monday")).toBe("jain_weekday_col");
-    expect(resolveCollectionName("JAIN_friday")).toBe("jain_friday_col");
-    expect(resolveCollectionName("JAIN_sunday")).toBe("jain_weekend_col");
+    expect(resolveCollectionName("jain", "monday")).toBe("jain_weekday_col");
+    expect(resolveCollectionName("jain", "friday")).toBe("jain_friday_col");
+    expect(resolveCollectionName("jain", "sunday")).toBe("jain_weekend_col");
   });
 
-  it("weekday bustypes all resolve to the same value", () => {
-    const mon = resolveCollectionName("INJA_monday");
-    const tue = resolveCollectionName("INJA_tuesday");
-    const wed = resolveCollectionName("INJA_wednesday");
-    const thu = resolveCollectionName("INJA_thursday");
+  it("weekday days all resolve to the same value", () => {
+    const mon = resolveCollectionName("inja", "monday");
+    const tue = resolveCollectionName("inja", "tuesday");
+    const wed = resolveCollectionName("inja", "wednesday");
+    const thu = resolveCollectionName("inja", "thursday");
     expect(mon).toBe(tue);
     expect(tue).toBe(wed);
     expect(wed).toBe(thu);
   });
 
-  it("returns null for invalid bustypes", () => {
-    expect(resolveCollectionName("INVALID")).toBeNull();
-    expect(resolveCollectionName("INJA_holiday")).toBeNull();
-    expect(resolveCollectionName("")).toBeNull();
-    expect(resolveCollectionName(null)).toBeNull();
-    expect(resolveCollectionName(undefined)).toBeNull();
+  it("normalizes direction to uppercase for collection key lookup", () => {
+    expect(resolveCollectionName("INJA", "monday")).toBe("inja_weekday_col");
+    expect(resolveCollectionName("Inja", "friday")).toBe("inja_friday_col");
   });
 
-  it("returns null for bustypes with wrong structure", () => {
-    expect(resolveCollectionName("INJA")).toBeNull();
-    expect(resolveCollectionName("INJA_monday_extra")).toBeNull();
+  it("returns null for invalid inputs", () => {
+    expect(resolveCollectionName("inja", "holiday")).toBeNull();
+    expect(resolveCollectionName("", "monday")).toBeNull();
+    expect(resolveCollectionName(null, "monday")).toBeNull();
+    expect(resolveCollectionName("inja", null)).toBeNull();
+    expect(resolveCollectionName(null, null)).toBeNull();
   });
 
   it("returns null for unknown direction with valid day", () => {
-    // Config doesn't have UNKNOWN_weekday, so should return null
-    expect(resolveCollectionName("UNKNOWN_monday")).toBeNull();
+    expect(resolveCollectionName("unknown", "monday")).toBeNull();
   });
 });
 
