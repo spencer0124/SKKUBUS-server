@@ -7,6 +7,7 @@ function mapStations(stations) {
   return stations.map((s, i) => ({
     index: i,
     name: s.stationName,
+    subtitle: s.subtitle || s.stationNumber || null,
     stationNumber: s.stationNumber || null,
     isFirstStation: s.isFirstStation,
     isLastStation: s.isLastStation,
@@ -198,4 +199,4 @@ function computeGroupEtag(id, lang = "ko") {
   return etag;
 }
 
-module.exports = { getBusGroups, computeEtag, getGroupById, computeGroupEtag };
+module.exports = { getBusGroups, computeEtag, getGroupById, computeGroupEtag, mapStations };
