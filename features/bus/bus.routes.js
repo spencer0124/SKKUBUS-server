@@ -1,5 +1,5 @@
 const hsscRoutes = require("./hssc.routes");
 const jongroRoutes = require("./jongro.routes");
-const campusRoutes = require("./campus.routes");
+const scheduleRoutes = require("./schedule.routes");
 
-module.exports = { hsscRoutes, jongroRoutes, campusRoutes };
+module.exports = { hsscRoutes, jongroRoutes, scheduleRoutes };

@@ -1,25 +1,24 @@
 const { Router } = require("express");
-const { getBusConfigs, CONFIG_VERSION } = require("./bus-config.data");
+const { getBusGroups, computeEtag } = require("./bus-config.data");
 
 const router = Router();
 
 /**
  * GET /bus/config
- * Returns all bus route configurations.
- * Text is localised based on Accept-Language (req.lang).
+ * Returns ordered groups array with ETag caching.
  */
 router.get("/", (req, res) => {
-  const configs = getBusConfigs(req.lang);
-  res.success(configs, { configVersion: CONFIG_VERSION });
-});
+  const lang = req.lang;
+  const etag = computeEtag(lang);
 
-/**
- * GET /bus/config/version
- * Lightweight version check — clients compare against cached version
- * and only re-fetch /bus/config when it differs.
- */
-router.get("/version", (req, res) => {
-  res.success({ configVersion: CONFIG_VERSION });
+  if (req.headers["if-none-match"] === etag) {
+    return res.status(304).end();
+  }
+
+  const groups = getBusGroups(lang);
+  res.set("ETag", etag);
+  res.set("Cache-Control", "public, max-age=300");
+  res.success({ groups });
 });
 
 module.exports = router;

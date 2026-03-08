@@ -1,118 +1,147 @@
+const crypto = require("crypto");
 const { t } = require("../../lib/i18n");
 
-/**
- * Bump this whenever config data changes so clients know to re-fetch.
- */
-const CONFIG_VERSION = 2;
+const etagCache = new Map();
 
 /**
- * Returns all bus route configurations keyed by route id.
- * Text fields are resolved to the requested language via i18n.
+ * Returns ordered array of 5 bus groups for the client SDUI.
+ * Order: hssc, campus, fasttrack, jongro02, jongro07
  *
  * @param {string} lang — "ko" | "en" | "zh"
+ * @returns {Array}
  */
-function getBusConfigs(lang = "ko") {
-  return {
-    hssc: {
+function getBusGroups(lang = "ko") {
+  return [
+    // 1. HSSC (realtime)
+    {
       id: "hssc",
       screenType: "realtime",
-      fallbackUrl: null,
-      display: {
-        name: t("buslist.hssc.title", lang),
+      label: t("busconfig.label.hssc", lang),
+      visibility: { type: "always" },
+      card: {
         themeColor: "003626",
         iconType: "shuttle",
+        busTypeText: t("buslist.hssc.busTypeText", lang),
       },
-      realtime: {
-        stationsEndpoint: "/bus/hssc/stations",
-        locationsEndpoint: "/bus/hssc/location",
-        refreshInterval: 15,
-      },
-      features: {
-        info: { url: "https://webview.skkuuniverse.com/#/bus/hssc/info" },
+      screen: {
+        endpoint: "/bus/realtime/ui/hssc",
       },
     },
-    jongro07: {
-      id: "jongro07",
-      screenType: "realtime",
-      fallbackUrl: null,
-      display: {
-        name: t("buslist.jongro07.title", lang),
-        themeColor: "4CAF50",
-        iconType: "village",
-      },
-      realtime: {
-        stationsEndpoint: "/bus/jongro/stations/07",
-        locationsEndpoint: "/bus/jongro/location/07",
-        refreshInterval: 15,
-      },
-      features: {
-        routeOverlay: {
-          coordsEndpoint: "/bus/route/jongro07",
-          color: "4CAF50",
-        },
-      },
-    },
-    jongro02: {
-      id: "jongro02",
-      screenType: "realtime",
-      fallbackUrl: null,
-      display: {
-        name: t("buslist.jongro02.title", lang),
-        themeColor: "4CAF50",
-        iconType: "village",
-      },
-      realtime: {
-        stationsEndpoint: "/bus/jongro/stations/02",
-        locationsEndpoint: "/bus/jongro/location/02",
-        refreshInterval: 15,
-      },
-      features: {
-        routeOverlay: {
-          coordsEndpoint: "/bus/route/jongro02",
-          color: "4CAF50",
-        },
-      },
-    },
-    campus: {
+
+    // 2. Campus (schedule)
+    {
       id: "campus",
       screenType: "schedule",
-      fallbackUrl: "https://webview.skkuuniverse.com/#/bus/campus/info",
-      display: {
-        name: t("buslist.inja.title", lang),
+      label: t("busconfig.label.campus", lang),
+      visibility: { type: "always" },
+      card: {
         themeColor: "003626",
         iconType: "shuttle",
+        busTypeText: t("buslist.hssc.busTypeText", lang),
       },
-      schedule: {
-        directions: [
+      screen: {
+        defaultServiceId: "campus-inja",
+        services: [
           {
-            id: "inja",
-            label: t("busconfig.direction.inja", lang),
-            endpoint: "/bus/campus/inja/{dayType}",
+            serviceId: "campus-inja",
+            label: t("busconfig.service.campus-inja", lang),
+            weekEndpoint: "/bus/schedule/data/campus-inja/week",
           },
           {
-            id: "jain",
-            label: t("busconfig.direction.jain", lang),
-            endpoint: "/bus/campus/jain/{dayType}",
+            serviceId: "campus-jain",
+            label: t("busconfig.service.campus-jain", lang),
+            weekEndpoint: "/bus/schedule/data/campus-jain/week",
           },
         ],
-        serviceCalendar: {
-          defaultServiceDays: [0, 1, 2, 3, 4], // 0=Mon...6=Sun
-          exceptions: [
-            { date: "2026-03-01", reason: t("busconfig.holiday.samil", lang), service: false },
-            { date: "2026-05-05", reason: t("busconfig.holiday.children", lang), service: false },
-          ],
+        heroCard: {
+          etaEndpoint: "/bus/campus/eta",
+          showUntilMinutesBefore: 0,
         },
-        routeTypes: {
-          hakbu: t("busconfig.routeType.hakbu", lang),
-          regular: t("busconfig.routeType.regular", lang),
-        },
-      },
-      features: {
-        info: { url: "https://webview.skkuuniverse.com/#/bus/campus/info" },
-        eta: { endpoint: "/bus/campus/eta" },
+        routeBadges: [
+          { id: "regular", label: t("busconfig.badge.regular", lang), color: "003626" },
+          { id: "hakbu", label: t("busconfig.badge.hakbu", lang), color: "1565C0" },
+        ],
+        features: [
+          { type: "info", url: "https://webview.skkuuniverse.com/#/bus/campus/info" },
+        ],
       },
     },
-  };
+
+    // 3. Fasttrack (schedule, date-limited)
+    {
+      id: "fasttrack",
+      screenType: "schedule",
+      label: t("busconfig.label.fasttrack", lang),
+      visibility: { type: "dateRange", from: "2026-03-09", until: "2026-03-10" },
+      card: {
+        themeColor: "E65100",
+        iconType: "shuttle",
+        busTypeText: t("busconfig.badge.fasttrack", lang),
+      },
+      screen: {
+        defaultServiceId: "fasttrack-inja",
+        services: [
+          {
+            serviceId: "fasttrack-inja",
+            label: t("busconfig.service.campus-inja", lang),
+            weekEndpoint: "/bus/schedule/data/fasttrack-inja/week",
+          },
+        ],
+        heroCard: null,
+        routeBadges: [
+          { id: "fasttrack", label: t("busconfig.badge.fasttrack", lang), color: "E65100" },
+        ],
+        features: [],
+      },
+    },
+
+    // 4. Jongro 02 (realtime)
+    {
+      id: "jongro02",
+      screenType: "realtime",
+      label: t("busconfig.label.jongro02", lang),
+      visibility: { type: "always" },
+      card: {
+        themeColor: "4CAF50",
+        iconType: "village",
+        busTypeText: t("buslist.village.busTypeText", lang),
+      },
+      screen: {
+        endpoint: "/bus/realtime/ui/jongro02",
+      },
+    },
+
+    // 5. Jongro 07 (realtime)
+    {
+      id: "jongro07",
+      screenType: "realtime",
+      label: t("busconfig.label.jongro07", lang),
+      visibility: { type: "always" },
+      card: {
+        themeColor: "4CAF50",
+        iconType: "village",
+        busTypeText: t("buslist.village.busTypeText", lang),
+      },
+      screen: {
+        endpoint: "/bus/realtime/ui/jongro07",
+      },
+    },
+  ];
 }
 
-module.exports = { getBusConfigs, CONFIG_VERSION };
+/**
+ * Compute a quoted MD5 ETag for the given language's config output.
+ * Cached per language.
+ */
+function computeEtag(lang = "ko") {
+  const cached = etagCache.get(lang);
+  if (cached) return cached;
+
+  const json = JSON.stringify(getBusGroups(lang));
+  const hash = crypto.createHash("md5").update(json).digest("hex");
+  const etag = `"${hash}"`;
+  etagCache.set(lang, etag);
+  return etag;
+}
+
+module.exports = { getBusGroups, computeEtag };

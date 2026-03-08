@@ -13,11 +13,21 @@ jest.mock("../features/station/station.fetcher", () => ({
   getStationInfo: jest.fn().mockReturnValue("정보 없음"),
 }));
 
-// Mock campus route to avoid MongoDB connection
-jest.mock("../features/bus/campus.data", () => ({
-  getData: jest.fn().mockResolvedValue([]),
-  resolveCollectionName: jest.fn(),
-  findNextBusTime: jest.fn(),
+// Mock schedule data to avoid MongoDB connection
+jest.mock("../features/bus/schedule.data", () => ({
+  resolveWeek: jest.fn().mockResolvedValue(null),
+  clearCache: jest.fn(),
+  clearCacheForService: jest.fn(),
+}));
+
+// Mock schedule-db to avoid MongoDB connection
+jest.mock("../features/bus/schedule-db", () => ({
+  ensureScheduleIndexes: jest.fn().mockResolvedValue(),
+}));
+
+// Mock campus-eta data to avoid real API calls
+jest.mock("../features/bus/campus-eta.data", () => ({
+  getEtaData: jest.fn().mockResolvedValue({ inja: null, jain: null }),
   clearCache: jest.fn(),
 }));
 

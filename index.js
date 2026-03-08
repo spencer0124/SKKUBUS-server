@@ -11,6 +11,7 @@ const verifyToken = require("./lib/authMiddleware");
 const langMiddleware = require("./lib/langMiddleware");
 const responseHelper = require("./lib/responseHelper");
 const { ensureIndexes, seedIfEmpty } = require("./features/ad/ad.data");
+const { ensureScheduleIndexes } = require("./features/bus/schedule-db");
 const busCache = require("./lib/busCache");
 
 let swaggerFile;
@@ -90,7 +91,8 @@ const generalLimiter = rateLimit({
 const searchRoute = require("./features/search/search.routes");
 const hsscRoutes = require("./features/bus/hssc.routes");
 const jongroRoutes = require("./features/bus/jongro.routes");
-const campusRoutes = require("./features/bus/campus.routes");
+const campusEtaRoutes = require("./features/bus/campus-eta.routes");
+const scheduleRoutes = require("./features/bus/schedule.routes");
 const busConfigRoutes = require("./features/bus/bus-config.routes");
 const routeOverlayRoutes = require("./features/bus/route-overlay.routes");
 const stationRoute = require("./features/station/station.routes");
@@ -105,7 +107,8 @@ app.use("/search", verifyToken, searchLimiter, searchRoute);
 app.use("/bus/hssc", generalLimiter, hsscRoutes);
 app.use("/bus/jongro", generalLimiter, jongroRoutes);
 app.use("/bus/station", generalLimiter, stationRoute);
-app.use("/bus/campus", generalLimiter, campusRoutes);
+app.use("/bus/campus", generalLimiter, campusEtaRoutes);
+app.use("/bus/schedule", generalLimiter, scheduleRoutes);
 app.use("/bus/config", generalLimiter, busConfigRoutes);
 app.use("/bus/route", generalLimiter, routeOverlayRoutes);
 app.use("/ui", generalLimiter, uiRoute);
@@ -151,6 +154,14 @@ if (require.main === module) {
       logger.info("[bus_cache] TTL index ensured");
     } catch (err) {
       logger.warn({ err: err.message }, "[bus_cache] Index setup failed");
+    }
+
+    // Ensure schedule indexes (non-fatal)
+    try {
+      await ensureScheduleIndexes();
+      logger.info("[schedule] Indexes ensured");
+    } catch (err) {
+      logger.warn({ err: err.message }, "[schedule] Index setup failed");
     }
 
     // ROLE=poller: run pollers only, no HTTP server
