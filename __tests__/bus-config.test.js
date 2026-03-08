@@ -1,4 +1,4 @@
-const { getBusGroups, computeEtag } = require("../features/bus/bus-config.data");
+const { getBusGroups, computeEtag, getGroupById, computeGroupEtag } = require("../features/bus/bus-config.data");
 
 describe("getBusGroups", () => {
   // Test 1: Returns 5 groups
@@ -120,6 +120,51 @@ describe("computeEtag", () => {
   it("different ETag per language", () => {
     const ko = computeEtag("ko");
     const en = computeEtag("en");
+    expect(ko).not.toBe(en);
+  });
+});
+
+describe("getGroupById", () => {
+  // Test 14: Known id returns group
+  it("returns group for known id", () => {
+    const group = getGroupById("campus", "ko");
+    expect(group).not.toBeNull();
+    expect(group.id).toBe("campus");
+    expect(group).toHaveProperty("screenType");
+    expect(group).toHaveProperty("screen");
+  });
+
+  // Test 15: Unknown id returns null
+  it("returns null for unknown id", () => {
+    const group = getGroupById("nonexistent", "ko");
+    expect(group).toBeNull();
+  });
+});
+
+describe("computeGroupEtag", () => {
+  // Test 16: Known id returns md5 format
+  it("returns md5 hex format for known id", () => {
+    const etag = computeGroupEtag("campus", "ko");
+    expect(etag).toMatch(/^"[a-f0-9]{32}"$/);
+  });
+
+  // Test 17: Unknown id returns null
+  it("returns null for unknown id", () => {
+    const etag = computeGroupEtag("nonexistent", "ko");
+    expect(etag).toBeNull();
+  });
+
+  // Test 18: Same id+lang returns same etag
+  it("same id+lang returns same etag", () => {
+    const e1 = computeGroupEtag("hssc", "ko");
+    const e2 = computeGroupEtag("hssc", "ko");
+    expect(e1).toBe(e2);
+  });
+
+  // Test 19: Different lang returns different etag
+  it("different lang returns different etag", () => {
+    const ko = computeGroupEtag("hssc", "ko");
+    const en = computeGroupEtag("hssc", "en");
     expect(ko).not.toBe(en);
   });
 });

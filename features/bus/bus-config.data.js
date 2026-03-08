@@ -72,7 +72,7 @@ function getBusGroups(lang = "ko") {
       id: "fasttrack",
       screenType: "schedule",
       label: t("busconfig.label.fasttrack", lang),
-      visibility: { type: "dateRange", from: "2026-03-09", until: "2026-03-10" },
+      visibility: { type: "dateRange", from: "2026-03-08", until: "2026-03-10" },
       card: {
         themeColor: "E65100",
         iconType: "shuttle",
@@ -144,4 +144,29 @@ function computeEtag(lang = "ko") {
   return etag;
 }
 
-module.exports = { getBusGroups, computeEtag };
+/**
+ * Returns a single group by id, or null if not found.
+ */
+function getGroupById(id, lang = "ko") {
+  return getBusGroups(lang).find((g) => g.id === id) || null;
+}
+
+/**
+ * Compute a quoted MD5 ETag for a single group.
+ * Cached per id:lang.
+ */
+function computeGroupEtag(id, lang = "ko") {
+  const cacheKey = `${id}:${lang}`;
+  const cached = etagCache.get(cacheKey);
+  if (cached) return cached;
+
+  const group = getGroupById(id, lang);
+  if (!group) return null;
+
+  const hash = crypto.createHash("md5").update(JSON.stringify(group)).digest("hex");
+  const etag = `"${hash}"`;
+  etagCache.set(cacheKey, etag);
+  return etag;
+}
+
+module.exports = { getBusGroups, computeEtag, getGroupById, computeGroupEtag };
