@@ -28,11 +28,20 @@ function getMapConfig(lang = "ko") {
     ],
     layers: [
       {
-        id: "campus_buildings",
+        id: "building_numbers",
         type: "marker",
-        label: t("map.layer.campus_buildings", lang),
+        markerStyle: "numberCircle",
+        label: t("map.layer.building_numbers", lang),
         defaultVisible: true,
-        endpoint: "/map/markers/campus",
+        endpoint: "/map/markers/campus?overlay=number",
+      },
+      {
+        id: "building_labels",
+        type: "marker",
+        markerStyle: "textLabel",
+        label: t("map.layer.building_labels", lang),
+        defaultVisible: true,
+        endpoint: "/map/markers/campus?overlay=label",
       },
       {
         id: "bus_route_jongro07",

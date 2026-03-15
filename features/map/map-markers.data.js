@@ -18,22 +18,58 @@ const FALLBACK_MARKERS = [
   { id: "nsc_1",   code: "1",  name: "자연과학캠퍼스", campus: "nsc",  lat: 37.29358,  lng: 126.974942 },
 ];
 
-async function getCampusMarkers() {
-  const buildings = await getAllBuildings();
-  if (!buildings?.length) return { markers: FALLBACK_MARKERS };
+function formatFallback(overlay) {
+  if (overlay === "number") {
+    return {
+      markers: FALLBACK_MARKERS.map((m) => ({
+        id: m.id,
+        displayNo: m.code,
+        campus: m.campus,
+        lat: m.lat,
+        lng: m.lng,
+      })),
+    };
+  }
+  // overlay === "label"
+  return {
+    markers: FALLBACK_MARKERS.map((m) => ({
+      id: m.id,
+      text: m.name,
+      campus: m.campus,
+      lat: m.lat,
+      lng: m.lng,
+    })),
+  };
+}
 
-  const markers = buildings.map((b) => ({
-    skkuId: b._id,
-    buildNo: b.buildNo,
-    displayNo: b.displayNo || null,
-    type: b.type,
-    name: b.name,
-    campus: b.campus,
-    lat: b.location.coordinates[1],
-    lng: b.location.coordinates[0],
-    image: b.image?.url || null,
-  }));
-  return { markers };
+async function getCampusMarkers(overlay) {
+  const buildings = await getAllBuildings();
+  if (!buildings?.length) return formatFallback(overlay);
+
+  if (overlay === "number") {
+    return {
+      markers: buildings
+        .filter((b) => b.displayNo)
+        .map((b) => ({
+          skkuId: b._id,
+          displayNo: b.displayNo,
+          campus: b.campus,
+          lat: b.location.coordinates[1],
+          lng: b.location.coordinates[0],
+        })),
+    };
+  }
+
+  // overlay === "label"
+  return {
+    markers: buildings.map((b) => ({
+      skkuId: b._id,
+      text: b.name,
+      campus: b.campus,
+      lat: b.location.coordinates[1],
+      lng: b.location.coordinates[0],
+    })),
+  };
 }
 
 module.exports = { getCampusMarkers, FALLBACK_MARKERS };

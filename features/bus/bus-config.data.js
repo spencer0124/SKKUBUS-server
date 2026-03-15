@@ -92,7 +92,7 @@ function getBusGroups(lang = "ko") {
       id: "fasttrack",
       screenType: "schedule",
       label: t("busconfig.label.fasttrack", lang),
-      visibility: { type: "dateRange", from: "2026-03-08", until: "2026-03-10" },
+      visibility: { type: "dateRange", from: "2026-03-14", until: "2026-03-21" },
       card: {
         themeColor: "E65100",
         iconType: "shuttle",

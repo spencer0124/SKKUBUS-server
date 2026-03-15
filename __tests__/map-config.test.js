@@ -11,7 +11,7 @@ describe("getMapConfig()", () => {
   it("returns campuses and layers", () => {
     const config = getMapConfig("ko");
     expect(config.campuses).toHaveLength(2);
-    expect(config.layers).toHaveLength(3);
+    expect(config.layers).toHaveLength(4);
   });
 
   it("localizes campus labels per language", () => {
@@ -23,9 +23,11 @@ describe("getMapConfig()", () => {
     const koLayers = getMapConfig("ko").layers;
     const enLayers = getMapConfig("en").layers;
     expect(koLayers[0].label).toBe("건물번호");
-    expect(enLayers[0].label).toBe("Buildings");
-    expect(koLayers[1].label).toBe("종로07 노선");
-    expect(enLayers[1].label).toBe("Jongro 07 Route");
+    expect(enLayers[0].label).toBe("Building Numbers");
+    expect(koLayers[1].label).toBe("건물이름");
+    expect(enLayers[1].label).toBe("Building Names");
+    expect(koLayers[2].label).toBe("종로07 노선");
+    expect(enLayers[2].label).toBe("Jongro 07 Route");
   });
 
   it("includes required campus fields", () => {
@@ -39,13 +41,25 @@ describe("getMapConfig()", () => {
     });
   });
 
-  it("includes required layer fields", () => {
+  it("includes required layer fields for building numbers", () => {
     const layer = getMapConfig("ko").layers[0];
     expect(layer).toMatchObject({
-      id: "campus_buildings",
+      id: "building_numbers",
       type: "marker",
+      markerStyle: "numberCircle",
       label: expect.any(String),
-      endpoint: "/map/markers/campus",
+      endpoint: "/map/markers/campus?overlay=number",
+    });
+  });
+
+  it("includes required layer fields for building labels", () => {
+    const layer = getMapConfig("ko").layers[1];
+    expect(layer).toMatchObject({
+      id: "building_labels",
+      type: "marker",
+      markerStyle: "textLabel",
+      label: expect.any(String),
+      endpoint: "/map/markers/campus?overlay=label",
     });
   });
 
@@ -94,26 +108,39 @@ describe("getMapConfig() naver env var", () => {
 });
 
 describe("getCampusMarkers()", () => {
-  it("returns fallback markers when DB is empty", async () => {
-    const { markers } = await getCampusMarkers();
-    expect(markers).toEqual(FALLBACK_MARKERS);
+  it("overlay=number returns displayNo-shaped fallback markers", async () => {
+    const { markers } = await getCampusMarkers("number");
     expect(markers.length).toBeGreaterThan(0);
-  });
-
-  it("every fallback marker has required fields", () => {
-    for (const m of FALLBACK_MARKERS) {
+    for (const m of markers) {
       expect(m).toMatchObject({
         id: expect.any(String),
-        name: expect.any(String),
+        displayNo: expect.any(String),
         campus: expect.stringMatching(/^(hssc|nsc)$/),
         lat: expect.any(Number),
         lng: expect.any(Number),
       });
+      expect(m).not.toHaveProperty("name");
     }
   });
 
-  it("includes both HSSC and NSC markers", () => {
-    const campuses = [...new Set(FALLBACK_MARKERS.map((m) => m.campus))];
+  it("overlay=label returns text-shaped fallback markers", async () => {
+    const { markers } = await getCampusMarkers("label");
+    expect(markers.length).toBeGreaterThan(0);
+    for (const m of markers) {
+      expect(m).toMatchObject({
+        id: expect.any(String),
+        text: expect.any(String),
+        campus: expect.stringMatching(/^(hssc|nsc)$/),
+        lat: expect.any(Number),
+        lng: expect.any(Number),
+      });
+      expect(m).not.toHaveProperty("displayNo");
+    }
+  });
+
+  it("includes both HSSC and NSC markers", async () => {
+    const { markers } = await getCampusMarkers("number");
+    const campuses = [...new Set(markers.map((m) => m.campus))];
     expect(campuses).toContain("hssc");
     expect(campuses).toContain("nsc");
   });
