@@ -245,27 +245,20 @@ final lat = building['location']['coordinates'][1]; // latitude second
 
 ---
 
-## Updated: `/map/markers/campus`
+## Updated: `/map/markers/campus` (sole marker source)
 
-This existing endpoint now returns DB-backed markers instead of hardcoded data.
+This endpoint is now the **only source** for building markers. The old overlay endpoint (`/map/overlays?category=hssc`) has been removed. The `/map/config` layer `campus_buildings` now points to `/map/markers/campus`.
 
-**Old shape** (12 markers):
-```json
-{ "id": "hssc_1", "code": "1", "name": "수선관", "campus": "hssc", "lat": 37.587, "lng": 126.994 }
-```
-
-**New shape** (78 markers):
+**Response** (78 markers):
 ```json
 { "skkuId": 2, "buildNo": "1", "type": "building", "name": { "ko": "수선관", "en": "Suseon Hall" }, "campus": "hssc", "lat": 37.587, "lng": 126.994, "image": "https://..." }
 ```
 
-**Breaking changes:**
-| Field | Old | New |
-|-------|-----|-----|
-| Identifier | `id` (string, e.g., `"hssc_1"`) | `skkuId` (int, e.g., `2`) |
-| Name | `name` (string) | `name` (object `{ ko, en }`) |
-| Building code | `code` (string) | `buildNo` (string \| null) |
-| New fields | — | `type`, `image` |
+**Key points:**
+- Returns both HSSC (25) and NSC (53) markers — filter client-side by `campus`
+- `skkuId` (int) can be used for detail API: `GET /building/{skkuId}`
+- `type: "facility"` entries (gates, parking) have `buildNo: null` and no floor data
+- Falls back to hardcoded markers if DB is empty (first boot, sync failure)
 
 ---
 
@@ -361,11 +354,14 @@ void onSearchChanged(String query) {
 - [ ] Add `Building`, `BuildingSearchResult`, `BuildingDetail` models
 - [ ] Add `BuildingRepository` with `getBuildings()`, `search()`, `getDetail()`
 - [ ] Register `BuildingRepository` in DI (GetX binding)
-- [ ] Update `/map/markers/campus` response parsing for new shape (`skkuId`, `name` as object)
+- [ ] Update map layer controller: parse `/map/markers/campus` new shape (`skkuId`, `name` as object)
+- [ ] Remove old overlay parser for `GET /map/overlays?category=hssc` (endpoint removed)
 - [ ] Add building search UI (connects to `/building/search`)
 - [ ] Add building detail view (connects to `/building/:skkuId`, shows floors/spaces)
 - [ ] Remove old SKKU API direct calls in `features/search/` usage (if any)
+- [ ] Remove `building_labels.dart` hardcoded markers (now server-driven)
 - [ ] Test: `/building/list?campus=hssc` returns 25 buildings
 - [ ] Test: `/building/search?q=도서` returns buildings + grouped spaces
 - [ ] Test: `/building/999` returns 404
 - [ ] Test: `/map/markers/campus` returns 78 markers with new shape
+- [ ] Test: map layer pipeline works with new endpoint (config → markers → NMarker)

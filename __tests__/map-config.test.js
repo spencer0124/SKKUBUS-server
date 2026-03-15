@@ -45,7 +45,7 @@ describe("getMapConfig()", () => {
       id: "campus_buildings",
       type: "marker",
       label: expect.any(String),
-      endpoint: "/map/overlays?category=hssc",
+      endpoint: "/map/markers/campus",
     });
   });
 

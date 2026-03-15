@@ -32,7 +32,7 @@ function getMapConfig(lang = "ko") {
         type: "marker",
         label: t("map.layer.campus_buildings", lang),
         defaultVisible: true,
-        endpoint: "/map/overlays?category=hssc",
+        endpoint: "/map/markers/campus",
       },
       {
         id: "bus_route_jongro07",
