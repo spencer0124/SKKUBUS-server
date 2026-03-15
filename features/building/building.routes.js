@@ -39,10 +39,16 @@ router.get(
       return res.error(400, "INVALID_CAMPUS", "campus must be 'hssc' or 'nsc'");
     }
 
-    const [buildings, spaces] = await Promise.all([
+    const [buildings, spaces, allBuildings] = await Promise.all([
       searchBuildings(q, campus),
       searchSpaces(q, campus),
+      getAllBuildings(),
     ]);
+
+    // buildNo → skkuId lookup (from cached buildings)
+    const buildNoToSkkuId = new Map(
+      allBuildings.filter((b) => b.buildNo).map((b) => [b.buildNo, b._id]),
+    );
 
     // Group spaces by buildNo
     const spaceGroups = [];
@@ -50,6 +56,7 @@ router.get(
     for (const s of spaces) {
       if (!groupMap.has(s.buildNo)) {
         const group = {
+          skkuId: buildNoToSkkuId.get(s.buildNo) || null,
           buildNo: s.buildNo,
           displayNo: toDisplayNo(s.buildNo, s.campus),
           buildingName: s.buildingName,
