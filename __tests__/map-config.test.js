@@ -1,5 +1,11 @@
 const { getMapConfig } = require("../features/map/map-config.data");
-const { getCampusMarkers } = require("../features/map/map-markers.data");
+
+// Mock building.data so getCampusMarkers uses fallback (no DB)
+jest.mock("../features/building/building.data", () => ({
+  getAllBuildings: jest.fn().mockResolvedValue([]),
+}));
+
+const { getCampusMarkers, FALLBACK_MARKERS } = require("../features/map/map-markers.data");
 
 describe("getMapConfig()", () => {
   it("returns campuses and layers", () => {
@@ -88,14 +94,14 @@ describe("getMapConfig() naver env var", () => {
 });
 
 describe("getCampusMarkers()", () => {
-  it("returns markers array", () => {
-    const { markers } = getCampusMarkers();
+  it("returns fallback markers when DB is empty", async () => {
+    const { markers } = await getCampusMarkers();
+    expect(markers).toEqual(FALLBACK_MARKERS);
     expect(markers.length).toBeGreaterThan(0);
   });
 
-  it("every marker has required fields", () => {
-    const { markers } = getCampusMarkers();
-    for (const m of markers) {
+  it("every fallback marker has required fields", () => {
+    for (const m of FALLBACK_MARKERS) {
       expect(m).toMatchObject({
         id: expect.any(String),
         name: expect.any(String),
@@ -107,8 +113,7 @@ describe("getCampusMarkers()", () => {
   });
 
   it("includes both HSSC and NSC markers", () => {
-    const { markers } = getCampusMarkers();
-    const campuses = [...new Set(markers.map((m) => m.campus))];
+    const campuses = [...new Set(FALLBACK_MARKERS.map((m) => m.campus))];
     expect(campuses).toContain("hssc");
     expect(campuses).toContain("nsc");
   });

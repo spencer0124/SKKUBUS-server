@@ -1,8 +1,7 @@
-/**
- * Campus building markers.
- * Client receives all markers and filters by `campus` field.
- */
-const CAMPUS_MARKERS = [
+const { getAllBuildings } = require("../building/building.data");
+
+// Fallback when DB is empty (original hardcoded markers)
+const FALLBACK_MARKERS = [
   // ── HSSC (인사캠) ──
   { id: "hssc_1",  code: "1",  name: "수선관",       campus: "hssc", lat: 37.587361, lng: 126.994479 },
   { id: "hssc_2",  code: "2",  name: "양현재",       campus: "hssc", lat: 37.587441, lng: 126.990506 },
@@ -16,12 +15,24 @@ const CAMPUS_MARKERS = [
   { id: "hssc_61", code: "61", name: "국제관",        campus: "hssc", lat: 37.587882, lng: 126.991079 },
   { id: "hssc_62", code: "62", name: "경영대학신관",  campus: "hssc", lat: 37.58816,  lng: 126.990868 },
   // ── NSC (자과캠) ──
-  // TODO: Add real NSC building data
   { id: "nsc_1",   code: "1",  name: "자연과학캠퍼스", campus: "nsc",  lat: 37.29358,  lng: 126.974942 },
 ];
 
-function getCampusMarkers() {
-  return { markers: CAMPUS_MARKERS };
+async function getCampusMarkers() {
+  const buildings = await getAllBuildings();
+  if (!buildings?.length) return { markers: FALLBACK_MARKERS };
+
+  const markers = buildings.map((b) => ({
+    skkuId: b._id,
+    buildNo: b.buildNo,
+    type: b.type,
+    name: b.name,
+    campus: b.campus,
+    lat: b.location.coordinates[1],
+    lng: b.location.coordinates[0],
+    image: b.image?.url || null,
+  }));
+  return { markers };
 }
 
-module.exports = { getCampusMarkers };
+module.exports = { getCampusMarkers, FALLBACK_MARKERS };
