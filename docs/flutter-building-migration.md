@@ -70,12 +70,17 @@ Searches building names/descriptions and space/room names. Returns two sections:
 - `buildings[]` — matched buildings (max 5)
 - `spaces[]` — matched spaces grouped by building (max 20 spaces)
 
-Each space group has `buildNo`, `displayNo`, `buildingName`, and `items[]` with `spaceCd`, `name`, `floor`.
+Each space group has `skkuId` (for detail navigation), `buildNo`, `displayNo`, `buildingName`, and `items[]` with `spaceCd`, `name`, `floor`.
 
 **Search behavior:**
-- Case-insensitive substring match
-- Numeric queries also match `buildNo` directly (e.g., `q=248` → 삼성학술정보관)
+- Case-insensitive substring match on names/descriptions
+- Numeric queries match `displayNo` (user-facing number, e.g., `q=48` → 삼성학술정보관). Raw `buildNo` (e.g., "248") is NOT searchable.
+- Alphanumeric queries also match `spaceCd` exactly (e.g., `q=23217` → 첨단e+강의실 in 제1공학관23동)
 - `meta` includes `keyword`, `buildingCount`, `spaceCount`
+
+**Flutter navigation from space result:**
+- Use `skkuId` from the space group to call `GET /building/:skkuId`
+- Pass `floor` and `spaceCd` from the tapped item as navigation params for future floor/space highlighting
 
 ### 3. Building detail — `/building/:skkuId`
 
@@ -83,7 +88,7 @@ Returns full building info with floor-grouped spaces:
 
 ```json
 {
-  "building": { "_id": 27, "buildNo": "248", "name": {...}, "attachments": [...], "extensions": {}, ... },
+  "building": { "_id": 27, "buildNo": "248", "displayNo": "48", "name": {...}, "attachments": [...], "extensions": {}, ... },
   "floors": [
     {
       "floor": { "ko": "1층", "en": "1F" },

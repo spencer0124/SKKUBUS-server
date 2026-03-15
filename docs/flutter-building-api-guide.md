@@ -39,6 +39,7 @@ Returns all buildings. Use for populating map markers or building directory view
       {
         "_id": 27,
         "buildNo": "248",
+        "displayNo": "48",
         "type": "building",
         "campus": "nsc",
         "name": { "ko": "삼성학술정보관", "en": "Samsung Library" },
@@ -111,6 +112,7 @@ Searches building names, descriptions, and space/room names. Returns buildings a
       {
         "_id": 27,
         "buildNo": "248",
+        "displayNo": "48",
         "name": { "ko": "삼성학술정보관", "en": "Samsung Library" },
         "campus": "nsc",
         "type": "building",
@@ -121,7 +123,9 @@ Searches building names, descriptions, and space/room names. Returns buildings a
     ],
     "spaces": [
       {
+        "skkuId": 3,
         "buildNo": "102",
+        "displayNo": "2",
         "buildingName": { "ko": "법학관", "en": "Law Building" },
         "items": [
           {
@@ -138,9 +142,10 @@ Searches building names, descriptions, and space/room names. Returns buildings a
 
 **Search behavior:**
 - Case-insensitive substring match on `name.ko`, `name.en`, `description.ko` (buildings) and `name.ko`, `name.en`, `buildingName.ko` (spaces)
-- Numeric-only queries (e.g., `q=248`) also match `buildNo` directly
+- Numeric-only queries (e.g., `q=48`) match `displayNo` for buildings (user-facing number, not raw `buildNo`)
+- Alphanumeric queries also match `spaceCd` exactly (e.g., `q=23217` → 첨단e+강의실)
 - Limits: max 5 buildings, max 20 spaces
-- Spaces are grouped by `buildNo` with `buildingName` for display
+- Spaces are grouped by building with `skkuId` (for detail navigation), `displayNo`, and `buildingName`
 
 **Error responses:**
 | Status | Code | When |
@@ -167,6 +172,7 @@ Returns full building info with spaces organized by floor.
     "building": {
       "_id": 27,
       "buildNo": "248",
+      "displayNo": "48",
       "type": "building",
       "campus": "nsc",
       "name": { "ko": "삼성학술정보관", "en": "Samsung Library" },
