@@ -73,7 +73,8 @@ Returns all buildings. Use for populating map markers or building directory view
 | Field | Type | Notes |
 |-------|------|-------|
 | `_id` | int | SKKU internal PK (`skkuId`). Use as route param for detail view. |
-| `buildNo` | string \| null | Building code. `null` for facilities (gates, parking, etc). |
+| `buildNo` | string \| null | Building code (SKKU raw, includes campus prefix). `null` for facilities. |
+| `displayNo` | string \| null | Human-readable building number with campus prefix stripped (e.g., "248"→"48"). Use this for display. |
 | `type` | string | `"building"` or `"facility"`. Facilities have no floors/spaces. |
 | `location.coordinates` | [lng, lat] | **GeoJSON order**: longitude first, latitude second. |
 | `image.url` | string \| null | Building photo from SKKU. May be null. |
@@ -251,7 +252,7 @@ This endpoint is now the **only source** for building markers. The old overlay e
 
 **Response** (78 markers):
 ```json
-{ "skkuId": 2, "buildNo": "1", "type": "building", "name": { "ko": "수선관", "en": "Suseon Hall" }, "campus": "hssc", "lat": 37.587, "lng": 126.994, "image": "https://..." }
+{ "skkuId": 2, "buildNo": "101", "displayNo": "1", "type": "building", "name": { "ko": "수선관", "en": "Suseon Hall" }, "campus": "hssc", "lat": 37.587, "lng": 126.994, "image": "https://..." }
 ```
 
 **Key points:**

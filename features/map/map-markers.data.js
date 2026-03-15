@@ -25,6 +25,7 @@ async function getCampusMarkers() {
   const markers = buildings.map((b) => ({
     skkuId: b._id,
     buildNo: b.buildNo,
+    displayNo: b.displayNo || null,
     type: b.type,
     name: b.name,
     campus: b.campus,

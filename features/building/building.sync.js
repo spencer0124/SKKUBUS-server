@@ -2,7 +2,7 @@ const axios = require("axios");
 const pollers = require("../../lib/pollers");
 const config = require("../../lib/config");
 const logger = require("../../lib/logger");
-const { getBuildingsCollection, getSpacesCollection, clearCache } = require("./building.data");
+const { getBuildingsCollection, getSpacesCollection, clearCache, toDisplayNo } = require("./building.data");
 
 const SKKU_API = "https://www.skku.edu/skku/about/campusInfo/campusMap.do";
 const CAMPUS_CODES = [
@@ -32,6 +32,7 @@ function toBuildingDoc(item, campus, syncTime) {
     update: {
       $set: {
         buildNo,
+        displayNo: toDisplayNo(buildNo, campus),
         type: buildNo ? "building" : "facility",
         campus,
         name: { ko: item.buildNm || "", en: item.buildNmEng || "" },

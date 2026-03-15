@@ -43,6 +43,15 @@ async function ensureIndexes() {
 
 // --- Helpers ---
 
+function toDisplayNo(buildNo, campus) {
+  if (!buildNo) return null;
+  const prefix = campus === "hssc" ? "1" : "2";
+  if (buildNo.startsWith(prefix)) {
+    return buildNo.slice(1).replace(/^0+/, "") || "0";
+  }
+  return buildNo; // E 센터 등 예외
+}
+
 function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -112,9 +121,9 @@ async function searchBuildings(query, campus) {
   };
   if (campus) filter.campus = campus;
 
-  // Numeric-only queries also match buildNo directly
+  // Numeric-only queries match displayNo (user-facing building number)
   if (/^\d+$/.test(query)) {
-    filter.$or.push({ buildNo: query });
+    filter.$or.push({ displayNo: query });
   }
 
   return col
@@ -129,6 +138,10 @@ async function searchSpaces(query, campus) {
   const filter = {
     $or: [{ "name.ko": regex }, { "name.en": regex }, { "buildingName.ko": regex }],
   };
+  // Numeric/alphanumeric codes also match spaceCd directly
+  if (/^[\da-zA-Z]+$/.test(query)) {
+    filter.$or.push({ spaceCd: query });
+  }
   if (campus) filter.campus = campus;
 
   return col
@@ -148,6 +161,7 @@ module.exports = {
   getBuildingsCollection,
   getSpacesCollection,
   ensureIndexes,
+  toDisplayNo,
   getAllBuildings,
   getBuildingBySkkuId,
   getFloorsByBuildNo,

@@ -23,7 +23,7 @@
 
 ```
 Old: { category, overlays: [{ type, id, position: { lat, lng }, marker: { label, subLabel } }] }
-New: { markers: [{ skkuId, buildNo, type, name: { ko, en }, campus, lat, lng, image }] }
+New: { markers: [{ skkuId, buildNo, displayNo, type, name: { ko, en }, campus, lat, lng, image }] }
 ```
 
 **Flutter action**: Update the layer data loader to parse the new shape. When the layer endpoint is `/map/markers/campus`, parse `markers[]` instead of `overlays[]`.
@@ -54,7 +54,8 @@ Returns all 78 buildings with metadata (name, coordinates, image, type, accessib
 | Field | Type | Description |
 |-------|------|-------------|
 | `_id` | int | `skkuId` — use for detail API |
-| `buildNo` | string \| null | Building code. `null` for facilities. |
+| `buildNo` | string \| null | SKKU raw building code (includes campus prefix). `null` for facilities. |
+| `displayNo` | string \| null | Human-readable number (prefix stripped, e.g., "248"→"48"). **Use this for display.** |
 | `type` | `"building"` \| `"facility"` | Facilities = gates, parking, fields |
 | `name` | `{ ko, en }` | Bilingual name |
 | `campus` | `"hssc"` \| `"nsc"` | Campus code |
@@ -69,7 +70,7 @@ Searches building names/descriptions and space/room names. Returns two sections:
 - `buildings[]` — matched buildings (max 5)
 - `spaces[]` — matched spaces grouped by building (max 20 spaces)
 
-Each space group has `buildNo`, `buildingName`, and `items[]` with `spaceCd`, `name`, `floor`.
+Each space group has `buildNo`, `displayNo`, `buildingName`, and `items[]` with `spaceCd`, `name`, `floor`.
 
 **Search behavior:**
 - Case-insensitive substring match

@@ -6,6 +6,7 @@ const {
   getFloorsByBuildNo,
   searchBuildings,
   searchSpaces,
+  toDisplayNo,
 } = require("./building.data");
 
 const router = Router();
@@ -50,6 +51,7 @@ router.get(
       if (!groupMap.has(s.buildNo)) {
         const group = {
           buildNo: s.buildNo,
+          displayNo: toDisplayNo(s.buildNo, s.campus),
           buildingName: s.buildingName,
           items: [],
         };
