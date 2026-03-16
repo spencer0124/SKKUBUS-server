@@ -84,9 +84,9 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-describe("GET /ui/home/buslist", () => {
+describe("GET /ui/home/transitlist", () => {
   it("returns busList with dynamic meta count", async () => {
-    const res = await request(app).get("/ui/home/buslist");
+    const res = await request(app).get("/ui/home/transitlist");
     expect(res.status).toBe(200);
     expect(res.body.meta.busListCount).toBeGreaterThanOrEqual(4);
     expect(res.body.meta.lang).toBe("ko");
@@ -94,7 +94,7 @@ describe("GET /ui/home/buslist", () => {
   });
 
   it("each busList item has groupId, card, and action", async () => {
-    const res = await request(app).get("/ui/home/buslist");
+    const res = await request(app).get("/ui/home/transitlist");
     res.body.data.forEach((item) => {
       expect(item).toHaveProperty("groupId");
       expect(item).toHaveProperty("card");
@@ -111,7 +111,7 @@ describe("GET /ui/home/buslist", () => {
 
   it("returns English text with Accept-Language: en", async () => {
     const res = await request(app)
-      .get("/ui/home/buslist")
+      .get("/ui/home/transitlist")
       .set("Accept-Language", "en");
     expect(res.body.meta.lang).toBe("en");
     expect(res.body.data[0].card.label).toBe("HSSC Shuttle Bus");
