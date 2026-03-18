@@ -26,12 +26,19 @@ function getSpacesCollection() {
     .collection(config.building.collections.spaces);
 }
 
+function getConnectionsCollection() {
+  return getClient()
+    .db(config.building.dbName)
+    .collection(config.building.collections.connections);
+}
+
 // --- Indexes ---
 
 async function ensureIndexes() {
   const buildings = getBuildingsCollection();
   const buildingsRaw = getRawBuildingsCollection();
   const spaces = getSpacesCollection();
+  const connections = getConnectionsCollection();
 
   await Promise.all([
     // buildings (enriched)
@@ -47,6 +54,9 @@ async function ensureIndexes() {
     ),
     spaces.createIndex({ buildNo: 1 }),
     spaces.createIndex({ campus: 1 }),
+    // connections
+    connections.createIndex({ "a.skkuId": 1 }),
+    connections.createIndex({ "b.skkuId": 1 }),
   ]);
 }
 
@@ -176,6 +186,47 @@ async function searchSpaces(query, campus) {
     .toArray();
 }
 
+// --- Connections ---
+
+async function getConnectionsForBuilding(skkuId) {
+  const col = getConnectionsCollection();
+  const docs = await col
+    .find({ $or: [{ "a.skkuId": skkuId }, { "b.skkuId": skkuId }] })
+    .toArray();
+
+  if (!docs.length) return [];
+
+  const relatedIds = new Set();
+  for (const doc of docs) {
+    relatedIds.add(doc.a.skkuId);
+    relatedIds.add(doc.b.skkuId);
+  }
+  relatedIds.delete(skkuId);
+
+  const buildings = await getBuildingsCollection()
+    .find(
+      { _id: { $in: Array.from(relatedIds) } },
+      { projection: { _id: 1, buildNo: 1, displayNo: 1, name: 1 } },
+    )
+    .toArray();
+  const buildingMap = new Map(buildings.map((b) => [b._id, b]));
+
+  return docs.map((doc) => {
+    const isA = doc.a.skkuId === skkuId;
+    const self = isA ? doc.a : doc.b;
+    const other = isA ? doc.b : doc.a;
+    const target = buildingMap.get(other.skkuId);
+    return {
+      targetSkkuId: other.skkuId,
+      targetBuildNo: target?.buildNo || null,
+      targetDisplayNo: target?.displayNo || null,
+      targetName: target?.name || { ko: "", en: "" },
+      fromFloor: self.floor,
+      toFloor: other.floor,
+    };
+  });
+}
+
 // --- Cache invalidation (for testing) ---
 
 function clearCache() {
@@ -187,12 +238,14 @@ module.exports = {
   getBuildingsCollection,
   getRawBuildingsCollection,
   getSpacesCollection,
+  getConnectionsCollection,
   ensureIndexes,
   toDisplayNo,
   floorSortKey,
   getAllBuildings,
   getBuildingBySkkuId,
   getFloorsByBuildNo,
+  getConnectionsForBuilding,
   searchBuildings,
   searchSpaces,
   clearCache,

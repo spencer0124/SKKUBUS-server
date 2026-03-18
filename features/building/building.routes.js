@@ -4,6 +4,7 @@ const {
   getAllBuildings,
   getBuildingBySkkuId,
   getFloorsByBuildNo,
+  getConnectionsForBuilding,
   searchBuildings,
   searchSpaces,
   toDisplayNo,
@@ -93,9 +94,12 @@ router.get(
       return res.error(404, "NOT_FOUND", `Building ${skkuId} not found`);
     }
 
-    const floors = await getFloorsByBuildNo(building.buildNo);
+    const [floors, connections] = await Promise.all([
+      getFloorsByBuildNo(building.buildNo),
+      getConnectionsForBuilding(skkuId),
+    ]);
 
-    res.success({ building, floors });
+    res.success({ building, floors, connections });
   }),
 );
 
