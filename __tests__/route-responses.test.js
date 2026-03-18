@@ -192,7 +192,7 @@ describe("Realtime routes", () => {
     it("returns 404", async () => {
       const res = await request(app).get("/bus/realtime/data/unknown");
       expect(res.status).toBe(404);
-      expect(res.body.meta.error).toBe("GROUP_NOT_FOUND");
+      expect(res.body.error.code).toBe("GROUP_NOT_FOUND");
     });
   });
 });

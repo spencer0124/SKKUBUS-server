@@ -21,26 +21,17 @@ router.get("/data/:serviceId/week", asyncHandler(async (req, res) => {
 
   // Validate from format if provided
   if (from !== undefined && !DATE_RE.test(from)) {
-    return res.status(400).json({
-      meta: { error: "INVALID_DATE_FORMAT", message: "from must be YYYY-MM-DD" },
-      data: null,
-    });
+    return res.error(400, "INVALID_DATE_FORMAT", "from must be YYYY-MM-DD");
   }
 
   // Check serviceId exists
   if (!serviceConfig[serviceId]) {
-    return res.status(404).json({
-      meta: { error: "SERVICE_NOT_FOUND", message: `Unknown serviceId: ${serviceId}` },
-      data: null,
-    });
+    return res.error(404, "SERVICE_NOT_FOUND", `Unknown serviceId: ${serviceId}`);
   }
 
   const data = await resolveWeek(serviceId, from);
   if (!data) {
-    return res.status(404).json({
-      meta: { error: "SERVICE_NOT_FOUND", message: `Unknown serviceId: ${serviceId}` },
-      data: null,
-    });
+    return res.error(404, "SERVICE_NOT_FOUND", `Unknown serviceId: ${serviceId}`);
   }
 
   // Compute ETag
@@ -66,18 +57,12 @@ router.get("/data/:serviceId/smart", asyncHandler(async (req, res) => {
   const { serviceId } = req.params;
 
   if (!serviceConfig[serviceId]) {
-    return res.status(404).json({
-      meta: { error: "SERVICE_NOT_FOUND", message: `Unknown serviceId: ${serviceId}` },
-      data: null,
-    });
+    return res.error(404, "SERVICE_NOT_FOUND", `Unknown serviceId: ${serviceId}`);
   }
 
   const result = await resolveSmartSchedule(serviceId);
   if (!result) {
-    return res.status(404).json({
-      meta: { error: "SERVICE_NOT_FOUND", message: `Unknown serviceId: ${serviceId}` },
-      data: null,
-    });
+    return res.error(404, "SERVICE_NOT_FOUND", `Unknown serviceId: ${serviceId}`);
   }
 
   // Spread for immutability; inject i18n message for non-active statuses

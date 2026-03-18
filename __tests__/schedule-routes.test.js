@@ -131,8 +131,7 @@ describe("GET /bus/schedule/data/:serviceId/week", () => {
     const res = await request(app)
       .get("/bus/schedule/data/unknown/week");
     expect(res.status).toBe(404);
-    expect(res.body.meta.error).toBe("SERVICE_NOT_FOUND");
-    expect(res.body.data).toBeNull();
+    expect(res.body.error.code).toBe("SERVICE_NOT_FOUND");
   });
 
   // Test 3: Invalid from format
@@ -140,8 +139,7 @@ describe("GET /bus/schedule/data/:serviceId/week", () => {
     const res = await request(app)
       .get("/bus/schedule/data/campus-inja/week?from=bad");
     expect(res.status).toBe(400);
-    expect(res.body.meta.error).toBe("INVALID_DATE_FORMAT");
-    expect(res.body.data).toBeNull();
+    expect(res.body.error.code).toBe("INVALID_DATE_FORMAT");
   });
 
   // Test 4: ETag header present
@@ -212,8 +210,7 @@ describe("GET /bus/schedule/data/:serviceId/smart", () => {
     const res = await request(app)
       .get("/bus/schedule/data/unknown/smart");
     expect(res.status).toBe(404);
-    expect(res.body.meta.error).toBe("SERVICE_NOT_FOUND");
-    expect(res.body.data).toBeNull();
+    expect(res.body.error.code).toBe("SERVICE_NOT_FOUND");
   });
 
   // Test 3: ETag header present
