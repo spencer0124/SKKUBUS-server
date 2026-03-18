@@ -66,8 +66,7 @@ describe("GET /bus/config/:groupId", () => {
   it("returns 404 for unknown groupId", async () => {
     const res = await request(app).get("/bus/config/unknown");
     expect(res.status).toBe(404);
-    expect(res.body.meta.error).toBe("GROUP_NOT_FOUND");
-    expect(res.body.data).toBeNull();
+    expect(res.body.error.code).toBe("GROUP_NOT_FOUND");
   });
 
   it("returns 304 when ETag matches", async () => {

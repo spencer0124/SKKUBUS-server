@@ -5,7 +5,7 @@ jest.mock("../features/building/building.data", () => ({
   getAllBuildings: jest.fn().mockResolvedValue([]),
 }));
 
-const { getCampusMarkers, FALLBACK_MARKERS } = require("../features/map/map-markers.data");
+const { getCampusMarkers } = require("../features/map/map-markers.data");
 
 describe("getMapConfig()", () => {
   it("returns campuses and layers", () => {

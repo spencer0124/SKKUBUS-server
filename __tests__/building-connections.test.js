@@ -31,7 +31,7 @@ jest.mock("../lib/config", () => ({
 
 function makeMockCollection(docs) {
   return {
-    find: jest.fn((query, opts) => ({
+    find: jest.fn((query, _opts) => ({
       toArray: jest.fn(async () => {
         if (!query || Object.keys(query).length === 0) return docs;
 

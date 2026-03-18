@@ -6,15 +6,20 @@ const { option1_detail } = require("./search.building-detail");
 const { option3 } = require("./search.space");
 
 router.get("/buildings/:query", asyncHandler(async (req, res) => {
-  const option1Hssc = await option1(req.params.query, 1);
-  const option1Nsc = await option1(req.params.query, 2);
+  const query = req.params.query.trim();
+  if (!query || query.length > 100) {
+    return res.error(400, "INVALID_QUERY", "Query must be 1-100 characters");
+  }
+
+  const option1Hssc = await option1(query, 1);
+  const option1Nsc = await option1(query, 2);
 
   const buildingsHsscCount = option1Hssc.length;
   const buildingsNscCount = option1Nsc.length;
   const buildingsTotalCount = option1Hssc.length + option1Nsc.length;
 
-  const option3Hssc = await option3(req.params.query, 1);
-  const option3Nsc = await option3(req.params.query, 2);
+  const option3Hssc = await option3(query, 1);
+  const option3Nsc = await option3(query, 2);
 
   const facilitiesHsscCount = option3Hssc.length;
   const facilitiesNscCount = option3Nsc.length;
@@ -30,7 +35,7 @@ router.get("/buildings/:query", asyncHandler(async (req, res) => {
       facilities: { hssc: option3Hssc, nsc: option3Nsc },
     },
     {
-      keyword: req.params.query,
+      keyword: query,
       totalCount,
       totalHsscCount,
       totalNscCount,
@@ -45,13 +50,23 @@ router.get("/buildings/:query", asyncHandler(async (req, res) => {
 }));
 
 router.get("/detail/:buildNo/:id", asyncHandler(async (req, res) => {
-  const mergedResults = await option1_detail(req.params.buildNo, req.params.id);
+  const { buildNo, id } = req.params;
+  if (!buildNo || !id) {
+    return res.error(400, "INVALID_PARAMS", "buildNo and id are required");
+  }
+
+  const mergedResults = await option1_detail(buildNo, id);
   res.success(mergedResults);
 }));
 
 router.get("/facilities/:query", asyncHandler(async (req, res) => {
-  const facilitiesHssc = await option3(req.params.query, 1);
-  const facilitiesNsc = await option3(req.params.query, 2);
+  const query = req.params.query.trim();
+  if (!query || query.length > 100) {
+    return res.error(400, "INVALID_QUERY", "Query must be 1-100 characters");
+  }
+
+  const facilitiesHssc = await option3(query, 1);
+  const facilitiesNsc = await option3(query, 2);
   const facilitiesHsscCount = facilitiesHssc.length;
   const facilitiesNscCount = facilitiesNsc.length;
   const facilitiesTotalCount = facilitiesHssc.length + facilitiesNsc.length;
@@ -59,7 +74,7 @@ router.get("/facilities/:query", asyncHandler(async (req, res) => {
   res.success(
     { hssc: facilitiesHssc, nsc: facilitiesNsc },
     {
-      keyword: req.params.query,
+      keyword: query,
       facilitiesTotalCount,
       facilitiesHsscCount,
       facilitiesNscCount,

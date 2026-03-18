@@ -70,10 +70,7 @@ router.get("/data/:groupId", asyncHandler(async (req, res) => {
   const config = GROUP_CONFIG[groupId];
 
   if (!config) {
-    return res.status(404).json({
-      meta: { error: "GROUP_NOT_FOUND", message: `Unknown groupId: ${groupId}` },
-      data: null,
-    });
+    return res.error(404, "GROUP_NOT_FOUND", `Unknown groupId: ${groupId}`);
   }
 
   const rawBuses = await config.getBuses();

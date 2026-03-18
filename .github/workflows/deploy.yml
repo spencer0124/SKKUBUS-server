@@ -52,3 +52,6 @@ jobs:
 
             # Update poller last (no downtime impact)
             docker compose up -d --no-deps poller
+            sleep 10
+            docker compose ps poller --format '{{.State}}' | grep -q running || exit 1
+            docker compose logs poller --tail 5 | grep -q "MongoDB connected\|poller-only mode" || echo "WARNING: poller may not have initialized fully"

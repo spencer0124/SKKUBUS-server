@@ -31,10 +31,7 @@ router.get("/:groupId", (req, res) => {
   const etag = computeGroupEtag(groupId, lang);
 
   if (!etag) {
-    return res.status(404).json({
-      meta: { error: "GROUP_NOT_FOUND", message: `Unknown groupId: ${groupId}` },
-      data: null,
-    });
+    return res.error(404, "GROUP_NOT_FOUND", `Unknown groupId: ${groupId}`);
   }
 
   if (req.headers["if-none-match"] === etag) {
