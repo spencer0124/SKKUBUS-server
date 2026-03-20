@@ -45,7 +45,9 @@ function getBusGroups(lang = "ko") {
         lastStationIndex: 10,
         stations: mapStations(HSSCStations),
         routeOverlay: null,
-        features: [],
+        features: [
+          { type: "info", url: "https://webview.skkuuniverse.com/#/bus/hssc/info" },
+        ],
       },
     },
 
