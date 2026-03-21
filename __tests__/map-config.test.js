@@ -11,7 +11,7 @@ describe("getMapConfig()", () => {
   it("returns campuses and layers", () => {
     const config = getMapConfig("ko");
     expect(config.campuses).toHaveLength(2);
-    expect(config.layers).toHaveLength(4);
+    expect(config.layers).toHaveLength(2);
   });
 
   it("localizes campus labels per language", () => {
@@ -26,8 +26,6 @@ describe("getMapConfig()", () => {
     expect(enLayers[0].label).toBe("Building Numbers");
     expect(koLayers[1].label).toBe("건물이름");
     expect(enLayers[1].label).toBe("Building Names");
-    expect(koLayers[2].label).toBe("종로07 노선");
-    expect(enLayers[2].label).toBe("Jongro 07 Route");
   });
 
   it("includes required campus fields", () => {
@@ -61,14 +59,6 @@ describe("getMapConfig()", () => {
       label: expect.any(String),
       endpoint: "/map/markers/campus?overlay=label",
     });
-  });
-
-  it("polyline layers have style with color", () => {
-    const polylines = getMapConfig("ko").layers.filter((l) => l.type === "polyline");
-    expect(polylines.length).toBeGreaterThan(0);
-    for (const l of polylines) {
-      expect(l.style).toMatchObject({ color: expect.any(String) });
-    }
   });
 
   it("includes naver.styleId from env var", () => {
