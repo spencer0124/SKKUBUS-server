@@ -6,6 +6,7 @@ services:
     environment:
       - NODE_ENV=production
       - ROLE=poller
+      - TZ=Asia/Seoul
     restart: unless-stopped
     mem_limit: 256m
     cpus: 0.5
@@ -28,6 +29,7 @@ services:
     environment:
       - NODE_ENV=production
       - ROLE=api
+      - TZ=Asia/Seoul
     depends_on:
       - poller
     restart: unless-stopped
@@ -56,6 +58,7 @@ services:
     environment:
       - NODE_ENV=production
       - ROLE=api
+      - TZ=Asia/Seoul
     depends_on:
       - poller
     restart: unless-stopped
