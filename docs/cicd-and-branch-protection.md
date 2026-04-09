@@ -1,33 +1,51 @@
 # CI/CD 및 브랜치 보호 전략
 
-## CI/CD 파이프라인
+## 워크플로우 구성
 
-### 트리거
+| 워크플로우 | 트리거 | 용도 |
+|---|---|---|
+| `ci.yml` | PR → main | test + lint 검증 |
+| `deploy.yml` | main push | test → OCI 자동 배포 + auto rollback |
+| `claude-code-review.yml` | PR 생성/업데이트 | 자동 코드 리뷰 |
+| `claude.yml` | `@claude` 멘션 | 대화형 응답 |
 
-`main` 브랜치에 push (PR 머지 포함) 시 자동 실행.
+---
 
-### 워크플로우 (`deploy.yml`)
+## CI (`ci.yml`) — PR 단계
+
+PR 생성 시 테스트/린트 통과 여부를 검증.
+
+```
+PR → main
+  └→ test job
+       ├→ npm ci
+       ├→ npm test
+       └→ npm run lint
+```
+
+## CD (`deploy.yml`) — 머지 후 배포
 
 ```
 main push
-  └→ GitHub Actions
-       ├→ [test] npm ci → npm test → npm run lint
-       └→ [deploy] (test 통과 후)
-            └→ SSH로 OCI 서버 접속 (appleboy/ssh-action)
-                 ├→ git pull origin main
-                 ├→ Nginx 설정 업데이트
-                 ├→ docker compose build
-                 ├→ Rolling update (api-1 → api-2 → poller)
-                 └→ 각 서비스 health check
+  ├→ test job (npm ci → test → lint)
+  └→ deploy job (test 통과 후, SSH → OCI)
+       ├→ PREV_COMMIT 저장
+       ├→ git pull origin main
+       ├→ Nginx 설정 업데이트
+       ├→ docker compose build
+       ├→ Rolling update (api-1 → api-2 → poller)
+       │    └→ 각 서비스 health check retry (5초 × 6회)
+       ├→ 성공 → 완료
+       └→ 실패 → rollback() → 전체 복원 (자동 rollback)
 ```
 
 ### Rolling Update 순서
 
-1. `api-1` 재시작 → 15초 대기 → health check (`/health/ready`)
-2. `api-2` 재시작 → 15초 대기 → health check (`/health/ready`)
-3. `poller` 재시작 → 10초 대기 → 상태 확인
+1. `api-1` 재시작 → health check retry → 통과 시 다음
+2. `api-2` 재시작 → health check retry → 통과 시 다음
+3. `poller` 재시작 → 상태 확인
 
-api-1, api-2가 순차 배포되므로 다운타임 없음.
+api-1, api-2가 순차 배포되므로 다운타임 없음. 어느 단계에서든 실패 시 전체 rollback.
 
 ### 배포 대상
 
@@ -71,24 +89,23 @@ api-1, api-2가 순차 배포되므로 다운타임 없음.
 | 규칙 | 설명 |
 |---|---|
 | PR 필수 | main 직접 push 차단. PR → CI 통과 → 머지 |
-| required_status_checks | `test` + `deploy` job 통과 필수 |
+| required_status_checks | `test` job 통과 필수 |
 | non_fast_forward | force push 방지 |
 | deletion | main 브랜치 삭제 방지 |
 
 ### Bypass
 
 - **Repository Admin**: 긴급 시 직접 push 가능 (bypass_mode: always)
-- **GitHub Actions bot**: bypass 불필요 (deploy workflow가 main에 push하지 않음)
 
-### 워크플로우
+### PR 머지 흐름
 
 ```
 feature branch 생성
   └→ 작업 & 커밋
        └→ PR 생성 (main ← feature)
-            └→ CI 자동 실행 (test → deploy)
-                 ├→ 통과 → 머지 가능
-                 └→ 실패 → 머지 차단
+            ├→ test check (npm test + lint)
+            ├→ Claude Code Review (자동 코드 리뷰)
+            └→ 둘 다 통과 → 머지 가능 → deploy 자동 실행
 ```
 
 ### 자동 Rollback
