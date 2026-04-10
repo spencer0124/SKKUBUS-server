@@ -179,8 +179,12 @@ const LIST_PROJECTION = Object.freeze({
 
 **결정:** `buildSummaryBrief` vs `buildSummaryFull` 두 함수로 분리.
 
-- **Brief** (리스트용, 4 필드): `oneLiner`, `type`, `endDate`, `endTime`
-- **Full** (상세용, 10 필드): 위 4개 + `text`, `startDate`, `startTime`, `details`, `model`, `generatedAt`
+- **Brief** (리스트용, 3 필드): `oneLiner`, `type`, `endAt`
+- **Full** (상세용, 9 필드): 위 3개 + `text`, `periods`, `locations`, `details`, `model`, `generatedAt`
+
+**Brief `endAt` 파생 규칙:** `summaryPeriods[0]` (첫 번째 period)의 `endDate` / `endTime`로부터 `{ date, time } | null` 형태로 파생한다. 다중 phase 공지 (예: 등록금 1차/2차, 신입/인턴 모집)에서 `periods[0]`이 가장 이른 — 즉 사용자에게 가장 시급한 — 마감이므로 list cell의 D-day 배지는 항상 1차 기준으로 표시된다. `periods`가 비어있거나 `periods[0].endDate`와 `endTime`이 모두 null이면 `endAt: null`. Time-independent (now()에 의존하지 않음) → 결정론적, 캐시 가능. 1차가 지나면 클라이언트에서 자연스럽게 "지난 마감"으로 보여주고, 사용자는 상세 화면에서 `periods[]` 전체를 보고 2차를 확인한다.
+
+**Full의 `periods` / `locations` 배열 통과:** AI 서버가 내려주는 배열을 그대로 pass-through한다. `label` 규칙 (원소 1개면 null, 2개 이상이면 LLM 생성 disambiguator) 도 그대로 유지. 빈 값은 `[]` (null 아님). `details`에서 `location` 키가 제거되어 있고 (`target`, `action`, `host`, `impact`만 남음) — `locations[]`가 그 자리를 대체한다.
 
 **키명 주의:** 요약 본문 키는 `text` (초기 draft의 `body` 아님). 설계 문서 v2와 클라이언트 `NoticeSummaryFull.text` 타입에 정합.
 
@@ -402,8 +406,7 @@ After:  pre-deploy dry-load 2초 → non-zero exit → git revert → exit 1
         "summary": {
           "oneLiner": "2026-04-09까지 학생 창업유망팀 신청",
           "type": "action_required",
-          "endDate": "2026-04-09",
-          "endTime": null
+          "endAt": { "date": "2026-04-09", "time": null }
         }
       }
     ],
@@ -433,9 +436,13 @@ After:  pre-deploy dry-load 2초 → non-zero exit → git revert → exit 1
       "text": "성균관대학교 창업지원단에서 ...",
       "oneLiner": "...",
       "type": "action_required",
-      "startDate": "2026-04-03",
-      "endDate": "2026-04-09",
-      "details": { "target": "...", "action": "...", "host": "...", ... },
+      "periods": [
+        { "label": null, "startDate": "2026-04-03", "startTime": "09:00", "endDate": "2026-04-09", "endTime": "18:00" }
+      ],
+      "locations": [
+        { "label": null, "detail": "경영관 33101호" }
+      ],
+      "details": { "target": "...", "action": "...", "host": "...", "impact": null },
       "model": "gpt-4.1-mini-2025-04-14",
       "generatedAt": "2026-04-09T11:52:02.769Z"
     }

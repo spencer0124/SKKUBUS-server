@@ -9,7 +9,9 @@
  * - editCount > 0 → isEdited (list) / editInfo (detail)
  * - summaryAt missing/null → summary: null
  * - unknown summaryType → "informational"
- * - List summary is brief (4 fields); detail summary is full (incl. `text`, not `body`)
+ * - List summary is brief (3 fields: oneLiner/type/endAt); detail summary is full
+ *   (incl. `text`, not `body`). Brief's `endAt` is derived from periods[0] — the
+ *   primary/earliest deadline for the D-day badge.
  */
 
 const VALID_SUMMARY_TYPES = new Set(["action_required", "event", "informational"]);
@@ -20,11 +22,16 @@ function normalizeSummaryType(t) {
 
 function buildSummaryBrief(doc) {
   if (!doc.summaryAt) return null;
+  const periods = Array.isArray(doc.summaryPeriods) ? doc.summaryPeriods : [];
+  const first = periods.length > 0 ? periods[0] : null;
+  const endAt =
+    first && (first.endDate || first.endTime)
+      ? { date: first.endDate || null, time: first.endTime || null }
+      : null;
   return {
     oneLiner: doc.summaryOneLiner || null,
     type: normalizeSummaryType(doc.summaryType),
-    endDate: doc.summaryEndDate || null,
-    endTime: doc.summaryEndTime || null,
+    endAt,
   };
 }
 
@@ -34,10 +41,8 @@ function buildSummaryFull(doc) {
     text: doc.summary || null,
     oneLiner: doc.summaryOneLiner || null,
     type: normalizeSummaryType(doc.summaryType),
-    startDate: doc.summaryStartDate || null,
-    startTime: doc.summaryStartTime || null,
-    endDate: doc.summaryEndDate || null,
-    endTime: doc.summaryEndTime || null,
+    periods: Array.isArray(doc.summaryPeriods) ? doc.summaryPeriods : [],
+    locations: Array.isArray(doc.summaryLocations) ? doc.summaryLocations : [],
     details: doc.summaryDetails || null,
     model: doc.summaryModel || null,
     generatedAt: doc.summaryAt,
