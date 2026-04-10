@@ -6,9 +6,12 @@ services:
     environment:
       - NODE_ENV=production
       - ROLE=poller
+      - TZ=Asia/Seoul
     restart: unless-stopped
     mem_limit: 256m
     cpus: 0.5
+    networks:
+      - skkuverse
     healthcheck:
       disable: true
     logging:
@@ -26,11 +29,14 @@ services:
     environment:
       - NODE_ENV=production
       - ROLE=api
+      - TZ=Asia/Seoul
     depends_on:
       - poller
     restart: unless-stopped
     mem_limit: 384m
     cpus: 0.75
+    networks:
+      - skkuverse
     logging:
       driver: json-file
       options:
@@ -52,11 +58,14 @@ services:
     environment:
       - NODE_ENV=production
       - ROLE=api
+      - TZ=Asia/Seoul
     depends_on:
       - poller
     restart: unless-stopped
     mem_limit: 384m
     cpus: 0.75
+    networks:
+      - skkuverse
     logging:
       driver: json-file
       options:
@@ -68,3 +77,7 @@ services:
       timeout: 5s
       start_period: 10s
       retries: 3
+
+networks:
+  skkuverse:
+    external: true

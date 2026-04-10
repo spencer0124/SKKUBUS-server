@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -32,26 +36,41 @@ jobs:
           script: |
             set -e
             cd ${{ secrets.DEPLOY_PATH }}
+
+            PREV_COMMIT=$(git rev-parse HEAD)
             git pull origin main
 
             # Update Nginx config
             sudo cp infra/nginx/api.skkuuniverse.com /etc/nginx/sites-available/
+            sudo cp infra/nginx/api.skkuverse.com /etc/nginx/sites-available/
+            sudo ln -sf /etc/nginx/sites-available/api.skkuverse.com /etc/nginx/sites-enabled/
             sudo nginx -t && sudo systemctl reload nginx
 
             # Build new images
             docker compose build
 
+            rollback() {
+              echo "Deployment failed — rolling back to $PREV_COMMIT"
+              git checkout "$PREV_COMMIT"
+              docker compose build
+              docker compose up -d --no-deps api-1 api-2 poller
+              sleep 15
+              curl -sf http://localhost:3001/health/ready || echo "WARNING: rollback also failed"
+            }
+
             # Rolling update: one replica at a time
             docker compose up -d --no-deps api-1
-            sleep 15
-            curl -f http://localhost:3001/health/ready || exit 1
+            HEALTHY=false
+            for i in $(seq 1 6); do sleep 5; curl -sf http://localhost:3001/health/ready && HEALTHY=true && break; done
+            if [ "$HEALTHY" = false ]; then rollback; exit 1; fi
 
             docker compose up -d --no-deps api-2
-            sleep 15
-            curl -f http://localhost:3002/health/ready || exit 1
+            HEALTHY=false
+            for i in $(seq 1 6); do sleep 5; curl -sf http://localhost:3002/health/ready && HEALTHY=true && break; done
+            if [ "$HEALTHY" = false ]; then rollback; exit 1; fi
 
             # Update poller last (no downtime impact)
             docker compose up -d --no-deps poller
             sleep 10
-            docker compose ps poller --format '{{.State}}' | grep -q running || exit 1
+            docker compose ps poller --format '{{.State}}' | grep -q running || { rollback; exit 1; }
             docker compose logs poller --tail 5 | grep -q "MongoDB connected\|poller-only mode" || echo "WARNING: poller may not have initialized fully"
