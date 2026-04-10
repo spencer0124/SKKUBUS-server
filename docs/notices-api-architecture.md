@@ -38,6 +38,7 @@
 | 8 | 공유 IP 환경에서 rate limit | IP 기반 limit은 캠퍼스 공용 와이파이에서 전체가 한 유저처럼 취급됨. |
 | 9 | 본문 HTML XSS 위험 | 크롤링한 HTML을 그대로 뿌리면 XSS 가능. 어디서 sanitize할지 책임 경계가 중요. |
 | 10 | 커서가 stale해질 수 있음 | 필터(`type`)를 바꾸면 예전 커서는 의미가 달라짐. |
+| 11 | 환경변수 누락이 조용히 숨는다 | `lib/config.js`의 silent fallback이 dev·CI·prod 간 차이를 덮어 로컬에선 멀쩡해 보임. VM `.env`에 변수를 추가하는 걸 잊어도 며칠 뒤 "엉뚱한 DB에 데이터가 쌓였다"로 터짐. **2026-04-10 incident로 실제 발현 — §3.17·§10 참조.** |
 
 ---
 
@@ -201,6 +202,8 @@ const LIST_PROJECTION = Object.freeze({
 - 최종 실패 시 `logger.error` — 기존 warn보다 한 단계 격상, 알람 룰이 잡도록.
 - 서버는 계속 기동 (기존 패턴 유지). 단, "list queries will full-scan" 경고 메시지로 원인 명시.
 
+**Post-launch 주의 (2026-04-10):** 이 retry 블록은 healthy path에서는 여전히 유효하지만, 실제 incident는 이 단계에 **도달하지도 못했다** — `lib/config.js`의 required 체크에서 `process.exit(1)`이 먼저 발동했기 때문. 즉 이 방어층은 "DB 네트워크 transient 이슈"를 막지만 "환경변수 미세팅"은 못 막는다. 후자는 §3.17이 담당.
+
 ### 3.11 Firebase Auth: optional, 기존 패턴 복제
 
 **문제:** 공개 API인가, 인증 필수인가? 그리고 캠퍼스 공유 IP에서 rate limit 어떻게?
@@ -279,6 +282,74 @@ res.success({...});
 **고려 대안:** 커서에 type을 인코딩, 요청 type과 불일치하면 400.
 
 **결정:** 커서는 filter-agnostic. `(date, crawledAt, _id)` 튜플만. type을 바꿔도 서버는 그대로 accept. 단점: 일부 아이템 skip 가능. 완화: 클라이언트가 type 변경 시 리스트 초기화하는 게 자연스럽다 (앱 UX상 필터 변경은 리스트 리셋이 관례).
+
+### 3.17 Strict config validation + pre-deploy dry-load (post-launch, 2026-04-10)
+
+**배경:** §3.1~§3.16까지의 설계는 런치 시점까지 유효했지만, 2026-04-10 PR #43 머지 이후 배포가 실패하며 구조적 약점이 드러났다. 이 subsection은 incident 이후 추가된 방어층을 정리한다. 전체 incident retrospective는 §10 참조.
+
+**진짜 문제:** `lib/config.js`에 두 가지 silent fallback이 있었다.
+```js
+// (1) 위험: MONGO_AD_DB_NAME이 없으면 광고가 버스 DB로 조용히 저장됨
+dbName: devDbName(
+  process.env.MONGO_AD_DB_NAME || process.env.MONGO_DB_NAME_BUS_CAMPUS,
+),
+
+// (2) 위험: 필터 경계가 조용히 하드코드된 날짜로 고정됨
+serviceStartDate: process.env.NOTICES_SERVICE_START_DATE || "2026-03-09",
+```
+Dev·CI·prod 환경이 다르면 이런 fallback은 **차이를 은폐**한다. 로컬에서는 `.env`에 값이 있어 동작하고, CI에서는 fallback이 먹혀 통과하고, prod에서는 누군가가 VM `.env`에 변수를 추가하는 걸 잊어도 한동안 멀쩡해 보인다. 그러다가 몇 주 뒤 데이터가 엉뚱한 DB에 쌓인 걸 발견한다.
+
+**결정 (PR #44 + #45로 분할):**
+
+**(A) Strict validation — PR #44, `lib/config.js`**
+- "DB/경계 redirect" 타입 fallback **전부 제거**. 누락 = loud crash.
+- `required` 배열을 **3-tuple** `[configPath, value, envVarName]`로 확장.
+- 에러 메시지가 **어떤 env var을 설정해야 하는지 직접 표기**:
+  ```
+  FATAL: Missing required config — set these env vars:
+    ad.dbName (env: MONGO_AD_DB_NAME)
+  ```
+- 값 기본값(`port || 3000`, `MONGO_AD_COLLECTION || "ads"` 같은 collection 이름)은 **유지** — 이건 "데이터 리디렉션"이 아닌 단순 운영 기본값.
+- `jest.setup.js` 신규 추가. CI처럼 `.env` 없는 환경에서도 baseline 값이 있어야 테스트가 동작. `if (!process.env[key])` 체크로 실제 env를 덮어쓰지 않음.
+- `config-env.test.js`에 strict 검증 6개 테스트 추가 + `jest.mock("dotenv")`로 dotenv 재로딩 차단 + `NODE_ENV="production"` 명시 (test 모드의 `!isTest` 가드 우회).
+
+**(B) Pre-deploy dry-load — PR #45, `.github/workflows/deploy.yml`**
+
+`docker compose build` 직후, rolling update **이전에** throwaway 컨테이너로 config만 dry-load:
+```bash
+echo "=== Pre-deploy config validation ==="
+if ! docker compose run --rm --no-deps -T api-1 \
+     node -e "require('./lib/config'); console.log('config ok')"; then
+  echo "ERROR: production config validation failed — aborting deploy."
+  git checkout "$PREV_COMMIT"
+  exit 1
+fi
+```
+- **같은 이미지**, **같은 `.env`** (compose의 `env_file: - .env`로 상속), **같은 `NODE_ENV=production`** — 프로덕션 동작의 가장 이른 지점을 재현.
+- `--rm --no-deps -T` + `node -e` 로 CMD override → 서버는 안 띄우고 config만 require → 포트 바인딩, Mongo 연결, poller 시작 등 부수효과 전무.
+- 실패 시 `git checkout $PREV_COMMIT; exit 1` — **rolling update 전**에 abort하므로 running containers 안 건드림, 0 downtime.
+- 기존 `rollback()` 함수는 그대로 유지 — rolling update 중 다른 이유(transient DB 등)로 실패할 때 여전히 보호.
+
+**3단 방어층 완성:** 코드 strict (#44) + pre-deploy dry-load (#45) + 기존 auto-rollback (#42). 각각 **다른 실패 모드**를 커버하므로 중복이 아닌 **중첩 방어**.
+
+| 실패 모드 | 잡는 층 |
+|---|---|
+| env var 누락 | #45 pre-deploy dry-load (2초) |
+| transient DB 연결 실패 중 rolling update | #42 auto-rollback (60초) |
+| 코드 버그로 startup 직후 죽음 | #42 auto-rollback |
+| silent env var drift → 몇 주 뒤 데이터 오염 | #44 strict validation (원천 차단) |
+
+**Before vs after (env var 누락 시):**
+```
+Before: rolling update → new container crash loop → 30초 health check timeout
+        → rollback() → 세 컨테이너 재빌드·재시작 → ~60초 downtime risk → exit 1
+After:  pre-deploy dry-load 2초 → non-zero exit → git revert → exit 1
+        → running containers 안 건드림 → 0 downtime
+```
+
+**철학 전환:** "fallback으로 crash 회피" (fail-safe) → "fail-loud으로 drift 드러내기" (strict validation). Silent fallback은 편안해 보이지만 **카오스 딜레이 타이머** — 언젠가 터지고, 터질 때 원인 특정이 어렵다. strict는 불편하지만 **문제를 배포 전에 드러낸다**.
+
+**의존 관계 주의:** `jest.setup.js`의 defaults, `.env.example`의 REQUIRED 섹션, `lib/config.js`의 `required` 배열 — 이 **세 파일이 동기화**되어야 한다. 새 required 변수를 추가할 때 한 곳만 건드리면 또 같은 종류의 drift가 생긴다.
 
 ---
 
@@ -405,11 +476,21 @@ __tests__/
 └── notices-routes.test.js       # 17 tests — supertest + all mocks
 
 수정:
-  lib/config.js       # config.notices + required
+  lib/config.js       # config.notices + required (2026-04-10: strict, no fallback)
   index.js            # mount, noticesLimiter, startup retry ensure
   .env                # MONGO_NOTICES_DB_NAME, NOTICES_SERVICE_START_DATE
   swagger/swagger-output.json  # auto-regenerated
 ```
+
+**Post-launch 추가 (2026-04-10 hardening — §3.17 참조):**
+```
+jest.setup.js          # NEW — baseline env vars for CI/test isolation
+jest.config.js         # + setupFiles: ["<rootDir>/jest.setup.js"]
+.env.example           # REQUIRED / OPTIONAL 섹션으로 재구성
+.github/workflows/deploy.yml  # + pre-deploy config dry-load step
+```
+
+이 파일들은 §3.17의 "세 파일 동기화" 계약에 포함된다: `jest.setup.js`의 defaults / `.env.example`의 REQUIRED / `lib/config.js`의 required 배열. 새 required 변수를 추가할 때 세 곳 모두 갱신해야 drift가 안 생긴다.
 
 ---
 
@@ -475,3 +556,132 @@ __tests__/
 - nh3 sanitizer (크롤러 사용): https://pypi.org/project/nh3/
 - 커서 기반 페이지네이션 원리: MongoDB docs → compound index + range query
 - Plan file: `~/.claude/plans/cryptic-growing-octopus.md` (구현 착수 전 최종 승인된 플랜)
+
+**Post-launch (2026-04-10 incident & hardening):**
+- PR #43: https://github.com/spencer0124/skkuverse-server/pull/43 — notices 최초 배포 (crash)
+- PR #44: https://github.com/spencer0124/skkuverse-server/pull/44 — strict config validation (silent fallback 제거)
+- PR #45: https://github.com/spencer0124/skkuverse-server/pull/45 — pre-deploy config dry-load
+- Incident run: https://github.com/spencer0124/skkuverse-server/actions/runs/24230429834 (실패 → rollback → SSH hotfix → rerun → 성공)
+- PR #42 (pre-existing): `ci/retry-and-auto-rollback` — rolling update 중 health check 실패 시 이전 커밋으로 자동 rollback (이번 incident에서 실제로 발동)
+
+---
+
+## 10. Post-launch 2026-04-10 incident & hardening retrospective
+
+이 섹션은 notices 최초 배포 직후 일어난 crash incident와, 그 후속으로 추가된 3단 방어층의 전체 기록이다. 설계 결정 자체는 §3.17에 있고, 이 §10은 **"무슨 일이 있었나 / 왜 그렇게 대응했나"**의 서사.
+
+### 10.1 Timeline
+
+| 시각 (UTC) | 이벤트 |
+|---|---|
+| 06:36 | PR #43 생성 (dev → main, notices API 최초) |
+| 06:48 | PR #43 main에 merge → CI/CD 자동 트리거 |
+| 06:49 | test job 18초 success, deploy job 시작 |
+| 06:49:22 | SSH 접속, `git pull origin main` (2b836e5..337a666 fast-forward), nginx config reload |
+| 06:49:25.71 | **새 `api-1` 컨테이너 시작** |
+| 06:49:25 ~ 55 | **30초간 `/health/ready` 6회 시도 모두 실패** (crash loop 중) |
+| 06:49:55.79 | `rollback()` 함수 실행: `git checkout 2b836e5`, 세 컨테이너 재빌드·재시작 |
+| 06:50:13.82 | rollback 컨테이너 healthy (`uptime: 15.69s`), 하지만 workflow는 원래 실패로 **exit 1** |
+| 06:50~ | 프로덕션은 `2b836e5`(이전 커밋)에서 정상 동작, notices 엔드포인트는 없는 상태 |
+| ~07:05 | 분석 시작 (사용자: "deploy fail인데 분석하고 계획 세워") |
+| ~07:06 | `gh run view --log-failed`로 타임라인 확보 |
+| ~07:07 | Root cause 특정: `lib/config.js`의 `required` 배열에 `notices.dbName` 추가했는데 VM `.env`에 `MONGO_NOTICES_DB_NAME` 없음 |
+| 07:07 | `ssh oracle`로 접속 → VM `.env` 백업 (`.env.bak.1775804878`) → append `MONGO_NOTICES_DB_NAME=skku_notices`, `NOTICES_SERVICE_START_DATE=2026-03-09` |
+| 07:07 | VM git state 정리: `detached HEAD 2b836e5` → `git checkout main && git pull` → `337a666` |
+| 07:08 | `gh run rerun 24230429834 --failed` |
+| 07:09 | **deploy GREEN (48초)**, 프로덕션에 notices 엔드포인트 live |
+| 07:10 | smoke test 통과: `/health/ready`, `/notices/departments` (144), `/notices/dept/skku-main` (페이지네이션) |
+| 07:42 | PR #44 (strict config) merge → deploy 53초 success |
+| 07:53 | PR #45 (pre-deploy validation) merge → deploy 1분1초 success (새 validation step 첫 실행) |
+
+### 10.2 Root cause
+
+**한 줄:** `lib/config.js`의 `required` 배열에 `notices.dbName`을 추가했지만 VM `.env`에 대응 env var 미설정 → production container의 `process.exit(1)` crash loop → `/health/ready` 30초 timeout → auto-rollback.
+
+**상세 실행 경로 (production container 안):**
+1. `NODE_ENV=production`, `isDevelopment=false`, `isTest=false`
+2. `process.env.MONGO_NOTICES_DB_NAME` → `undefined` (VM `.env`에 없음)
+3. `devDbName(undefined)` → `undefined` (함수의 `if (!baseName) return baseName` 분기)
+4. `config.notices.dbName` → `undefined`
+5. `required.filter(([, v]) => !v)` → `[["notices.dbName", undefined]]`
+6. `missing.length > 0` → `true`
+7. `console.error("Missing required config: notices.dbName")`
+8. `process.exit(1)` → **컨테이너 death**
+9. Docker restart policy `unless-stopped` → 즉시 재시작 → 동일 지점에서 또 die → crash loop
+10. 30초간 `/health/ready` 한 번도 응답 못 함
+11. `ci/retry-and-auto-rollback` (PR #42)이 rollback 발동
+
+### 10.3 왜 테스트·CI·로컬에서 안 잡혔나
+
+이번 incident의 진짜 교훈은 **"어떻게 여러 단계의 안전망을 동시에 통과했는가"**다.
+
+**로컬 실행 (세션 초반 smoke test):** 이 세션 초반에 로컬 `.env`에 `MONGO_NOTICES_DB_NAME=skku_notices`를 추가했고 그 상태로 `NODE_ENV=development PORT=3099 node index.js`로 smoke test했다 → 통과. 로컬 `.env`에 변수가 있었기 때문.
+
+**CI test job:** `config.js`에 `if (!isTest) { process.exit(1); }` 가드가 있어 `NODE_ENV=test`에선 crash가 suppress된다. 테스트는 `console.error`만 찍히고 통과.
+
+**`.env.example`:** `MONGO_NOTICES_DB_NAME`이 문서화되어 있지 않았음 → 다음 VM 셋업할 사람이 참조할 곳 없음.
+
+**VM `.env`:** 수동 관리. 내가 로컬 `.env`에만 추가하고 VM은 건드리지 않았음. SSH 접근은 사용자 영역이라 자동화 없음.
+
+이 다섯 단계 중 어느 한 곳이라도 "new required var이 선언됨"을 감지했다면 incident는 일어나지 않았다. 이게 바로 §3.17의 "세 파일 동기화 계약"이 생긴 이유다.
+
+### 10.4 Immediate fix (SSH hotfix, 코드 변경 없음)
+
+사용자 판단으로 **코드 수정 없이 VM `.env`만 업데이트**하기로 결정. 이유: 프로덕션 rollback 상태(`2b836e5`)가 안정적이고, 긴급 복구에 PR 절차를 거치는 것보다 SSH로 한 줄 추가하는 게 빠르고 리스크 작음.
+
+실행 순서 (`ssh oracle`, 모두 append-only, `.env` 백업 후):
+```bash
+cd /home/ubuntu/skkumap-server-express
+cp .env .env.bak.$(date +%s)
+cat >> .env <<'ENV'
+
+# 공지 DB (added 2026-04-10 after deploy fail hotfix)
+MONGO_NOTICES_DB_NAME=skku_notices
+NOTICES_SERVICE_START_DATE=2026-03-09
+ENV
+git checkout main  # detached HEAD → main
+git pull origin main  # 2b836e5 → 337a666
+```
+그 후 로컬에서 `gh run rerun 24230429834 --failed` → 48초 만에 green → 프로덕션 live.
+
+### 10.5 Long-term hardening (PR #44 + #45)
+
+Immediate fix는 임시. 같은 class의 실수가 반복되지 않도록 **구조적 방어**를 추가할 필요가 있었다. 사용자가 철학 전환을 명시: "fallback 빼줘, 기존에 있던 fallback도 빼줘, 무조건 없으면 crash나게, 그래서 나중에 카오스 안 일어나게."
+
+이 철학에 따라 두 PR로 분할 진행 (risk 격리):
+
+1. **PR #44** — `lib/config.js` strict 전환. 상세는 §3.17 (A).
+2. **PR #45** — `.github/workflows/deploy.yml` pre-deploy dry-load. 상세는 §3.17 (B).
+
+두 PR 모두 merge 후 첫 배포가 **problem-free**하게 진행됐고, PR #45 merge 후 deploy 로그에서 새 validation step(`=== Pre-deploy config validation ===` → `config ok`)이 실제로 실행되는 걸 확인.
+
+### 10.6 Lessons learned
+
+**1. Silent fallback은 카오스 딜레이 타이머.** `ad.dbName`이 `MONGO_DB_NAME_BUS_CAMPUS`로 fallback한다는 건 "지금은 동작"처럼 보이지만, 누군가 `MONGO_AD_DB_NAME`을 잘못 설정하면 **광고가 몇 주 동안 버스 DB에 저장**된 뒤 발견된다. 그때는 복구가 훨씬 어렵다. Incident는 **몇 분짜리 crash loop**가 **며칠짜리 데이터 오염**보다 차라리 낫다.
+
+**2. "테스트 통과"와 "안전"은 다르다.** `config-env.test.js`의 기존 `setBaseEnv()`는 `MONGO_BUILDING_DB_NAME`, `MONGO_NOTICES_DB_NAME` 같은 required 변수를 빠뜨리고 있었다. 테스트는 `process.exit` mock 덕에 조용히 통과했다. 즉 **테스트가 실제 required contract를 검증하지 않고 있었다**. 이번 hardening에서 `setBaseEnv`를 `required` 배열과 수동 sync하도록 고쳤지만, 궁극적으로는 코드 레벨에서 동기화를 강제할 방법(예: jsonschema + test runner assertion)이 있으면 더 좋다.
+
+**3. Pre-deploy validation의 비용은 거의 0.** PR #45의 `docker compose run --rm --no-deps -T api-1 node -e "require('./lib/config')"`는 이미 빌드된 이미지를 throwaway로 잠깐 띄워 config만 로드한다. 배포 시간 증가는 2~3초 수준인데, "missing env var로 rolling update를 시작한 뒤 30초 timeout + rollback" 을 "배포 전 2초 fail-fast"로 바꾼다. **99%의 경우엔 낭비지만, 1%의 실수에서 치명상을 막는다**.
+
+**4. Auto-rollback은 최후 방어층, 첫 방어층이 아니다.** PR #42의 `ci/retry-and-auto-rollback`이 이번 incident에서 프로덕션을 보호했다는 건 고마운 사실. 하지만 auto-rollback에 의존하면 "어떤 에러든 배포 중에 터질 수 있다"는 느슨함을 수용하게 된다. PR #45는 "미리 잡을 수 있는 건 미리 잡자"는 방향으로 rollback의 트리거 빈도를 줄인다. 이상적으로 auto-rollback은 **진짜로 예측 불가능한 실패**(transient DB / 3rd party API 등)에만 반응해야 한다.
+
+**5. 문서화는 계약이다.** `.env.example`이 `MONGO_NOTICES_DB_NAME`을 빠뜨리고 있었던 건 단순한 실수가 아니라, **서버 팀과 VM 셋업 담당자 사이의 계약이 깨져있었다**는 의미다. 이번 hardening에서 `.env.example`을 REQUIRED/OPTIONAL로 재구성하고 새 변수를 모두 명시한 건 문서화를 넘어 **"이 파일이 진실이다"**라는 contract를 회복한 것.
+
+### 10.7 Residual risk
+
+완전 방어는 없다. 이 3단 방어층이 막지 못하는 시나리오:
+
+- **VM `.env`가 PR 머지 **후**, 첫 배포가 돌기 **전**에 삭제됨** → pre-deploy validation이 잡음 (§3.17 (B))
+- **런타임 중 Mongo 연결이 끊김** → auto-rollback 무관, `/health/ready` 뒤로 뜨는 문제 → 기존 monitoring 필요
+- **프로덕션 데이터 자체 오염** → 방어 대상 아님, 이건 operational issue
+- **pre-deploy validation step 자체가 버그** → 첫 배포 run을 모니터링해야 함 (PR #45 merge 후 확인됨)
+
+### 10.8 Follow-up items
+
+- [x] `.env.example` 문서화 (PR #44 포함)
+- [x] strict config (PR #44)
+- [x] pre-deploy validation (PR #45)
+- [ ] (optional) POSTMORTEM 문서로 incident 분리 — 이 §10이 그 역할을 겸하고 있으므로 당분간 생략
+- [ ] (optional) `.env.example` ↔ `lib/config.js` ↔ `jest.setup.js` drift detection을 CI 레벨에 추가 — 세 파일 sync를 수동으로 믿지 않도록. 과도한 복잡도라 당장은 생략
+- [ ] (optional) 다른 feature의 required 변수들(Firebase, Naver)을 audit해서 같은 패턴 있으면 strict로 전환
+- [ ] (optional) 크롤러 `consecutiveFailures` 모니터링 대시보드
