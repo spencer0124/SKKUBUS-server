@@ -58,24 +58,101 @@ describe("buildSummaryBrief", () => {
     expect(buildSummaryBrief(makeDoc({ summaryAt: null }))).toBeNull();
   });
 
-  it("returns exactly 4 fields: oneLiner, type, endDate, endTime", () => {
+  it("returns exactly 3 fields: oneLiner, type, endAt", () => {
     const doc = makeDoc({
       summaryAt: new Date(),
       summaryOneLiner: "한 줄 요약",
       summaryType: "action_required",
-      summaryStartDate: "2026-04-01", // should NOT leak into brief
-      summaryStartTime: "09:00",      // should NOT leak into brief
-      summaryEndDate: "2026-04-09",
-      summaryEndTime: "18:00",
-      summary: "본문 요약",             // should NOT leak into brief
-      summaryDetails: { target: "x" }, // should NOT leak into brief
+      summaryPeriods: [
+        {
+          label: null,
+          startDate: "2026-04-01",
+          startTime: "09:00",
+          endDate: "2026-04-09",
+          endTime: "18:00",
+        },
+      ],
+      summaryLocations: [{ label: null, detail: "경영관 33101호" }], // should NOT leak into brief
+      summary: "본문 요약",                                            // should NOT leak into brief
+      summaryDetails: { target: "x" },                                // should NOT leak into brief
     });
     const brief = buildSummaryBrief(doc);
-    expect(Object.keys(brief).sort()).toEqual(["endDate", "endTime", "oneLiner", "type"]);
+    expect(Object.keys(brief).sort()).toEqual(["endAt", "oneLiner", "type"]);
     expect(brief.oneLiner).toBe("한 줄 요약");
     expect(brief.type).toBe("action_required");
-    expect(brief.endDate).toBe("2026-04-09");
-    expect(brief.endTime).toBe("18:00");
+    expect(brief.endAt).toEqual({ date: "2026-04-09", time: "18:00" });
+  });
+
+  it("derives endAt from periods[0] (first period), not the last", () => {
+    // 등록금 1차/2차 — list cell must show 1차 (earlier/primary) deadline.
+    const doc = makeDoc({
+      summaryAt: new Date(),
+      summaryType: "action_required",
+      summaryPeriods: [
+        { label: "1차 납부",    startDate: "2026-02-10", startTime: null, endDate: "2026-02-14", endTime: null },
+        { label: "2차 추가 납부", startDate: "2026-02-24", startTime: null, endDate: "2026-02-26", endTime: null },
+      ],
+    });
+    const brief = buildSummaryBrief(doc);
+    expect(brief.endAt).toEqual({ date: "2026-02-14", time: null });
+    expect(brief.endAt.date).not.toBe("2026-02-26"); // explicit: not the last period
+  });
+
+  it("returns endAt null when summaryPeriods is []", () => {
+    const doc = makeDoc({ summaryAt: new Date(), summaryPeriods: [] });
+    expect(buildSummaryBrief(doc).endAt).toBeNull();
+  });
+
+  it("returns endAt null when summaryPeriods is missing (undefined)", () => {
+    const doc = makeDoc({ summaryAt: new Date() });
+    expect(buildSummaryBrief(doc).endAt).toBeNull();
+  });
+
+  it("returns endAt null when periods[0] has neither endDate nor endTime (start-only period)", () => {
+    const doc = makeDoc({
+      summaryAt: new Date(),
+      summaryPeriods: [
+        { label: null, startDate: "2026-04-15", startTime: "14:00", endDate: null, endTime: null },
+      ],
+    });
+    expect(buildSummaryBrief(doc).endAt).toBeNull();
+  });
+
+  it("allows endAt.date null when only endTime is present", () => {
+    const doc = makeDoc({
+      summaryAt: new Date(),
+      summaryPeriods: [
+        { label: null, startDate: null, startTime: null, endDate: null, endTime: "23:59" },
+      ],
+    });
+    expect(buildSummaryBrief(doc).endAt).toEqual({ date: null, time: "23:59" });
+  });
+
+  it("allows endAt.time null when only endDate is present", () => {
+    // Sample 3 from AI server: deadline-only notice.
+    const doc = makeDoc({
+      summaryAt: new Date(),
+      summaryPeriods: [
+        { label: null, startDate: null, startTime: null, endDate: "2026-04-20", endTime: null },
+      ],
+    });
+    expect(buildSummaryBrief(doc).endAt).toEqual({ date: "2026-04-20", time: null });
+  });
+
+  it("does NOT leak startDate/startTime/endDate/endTime as top-level brief keys", () => {
+    const doc = makeDoc({
+      summaryAt: new Date(),
+      summaryPeriods: [
+        { label: null, startDate: "2026-04-01", startTime: "09:00", endDate: "2026-04-09", endTime: "18:00" },
+      ],
+    });
+    const brief = buildSummaryBrief(doc);
+    expect(brief).not.toHaveProperty("startDate");
+    expect(brief).not.toHaveProperty("startTime");
+    expect(brief).not.toHaveProperty("endDate");
+    expect(brief).not.toHaveProperty("endTime");
+    expect(brief).not.toHaveProperty("periods");
+    expect(brief).not.toHaveProperty("locations");
   });
 
   it("coerces unknown summaryType to informational", () => {
@@ -87,8 +164,7 @@ describe("buildSummaryBrief", () => {
     const doc = makeDoc({ summaryAt: new Date(), summaryType: "event" });
     const brief = buildSummaryBrief(doc);
     expect(brief.oneLiner).toBeNull();
-    expect(brief.endDate).toBeNull();
-    expect(brief.endTime).toBeNull();
+    expect(brief.endAt).toBeNull();
   });
 });
 
@@ -97,39 +173,82 @@ describe("buildSummaryFull", () => {
     expect(buildSummaryFull(makeDoc({}))).toBeNull();
   });
 
-  it("includes text, model, details, start*, end*, generatedAt", () => {
+  it("includes text, oneLiner, type, periods, locations, details, model, generatedAt", () => {
     const at = new Date("2026-04-09T11:52:02.769Z");
+    const periods = [
+      { label: null, startDate: "2026-04-03", startTime: "09:00", endDate: "2026-04-09", endTime: "18:00" },
+    ];
+    const locations = [{ label: null, detail: "경영관 33101호" }];
     const doc = makeDoc({
       summaryAt: at,
       summary: "본문 요약이에요",
       summaryOneLiner: "한 줄",
       summaryType: "event",
-      summaryStartDate: "2026-04-03",
-      summaryStartTime: "09:00",
-      summaryEndDate: "2026-04-09",
-      summaryEndTime: "18:00",
-      summaryDetails: { target: "학부생", action: null, location: null, host: "x", impact: null },
+      summaryPeriods: periods,
+      summaryLocations: locations,
+      summaryDetails: { target: "학부생", action: null, host: "x", impact: null },
       summaryModel: "gpt-4.1-mini-2025-04-14",
     });
     const full = buildSummaryFull(doc);
-    expect(full.text).toBe("본문 요약이에요");         // v2 key: `text`, not `body`
+    expect(Object.keys(full).sort()).toEqual([
+      "details", "generatedAt", "locations", "model", "oneLiner", "periods", "text", "type",
+    ]);
+    expect(full.text).toBe("본문 요약이에요"); // v2 key: `text`, not `body`
     expect(full.oneLiner).toBe("한 줄");
     expect(full.type).toBe("event");
-    expect(full.startDate).toBe("2026-04-03");
-    expect(full.startTime).toBe("09:00");
-    expect(full.endDate).toBe("2026-04-09");
-    expect(full.endTime).toBe("18:00");
-    expect(full.details).toEqual({
-      target: "학부생", action: null, location: null, host: "x", impact: null,
-    });
+    expect(full.periods).toEqual(periods);
+    expect(full.locations).toEqual(locations);
+    expect(full.details).toEqual({ target: "학부생", action: null, host: "x", impact: null });
     expect(full.model).toBe("gpt-4.1-mini-2025-04-14");
     expect(full.generatedAt).toBe(at);
   });
 
-  it("must NOT expose a `body` key (design uses `text`)", () => {
-    const doc = makeDoc({ summaryAt: new Date(), summary: "x" });
+  it("passes multi-period + multi-location case through unchanged (등록금 1차/2차 × 인사캠/자과캠)", () => {
+    const periods = [
+      { label: "1차 납부",    startDate: "2026-02-10", startTime: null, endDate: "2026-02-14", endTime: null },
+      { label: "2차 추가 납부", startDate: "2026-02-24", startTime: null, endDate: "2026-02-26", endTime: null },
+    ];
+    const locations = [
+      { label: "인사캠", detail: "600주년기념관 재무팀" },
+      { label: "자과캠", detail: "학생회관 재무팀" },
+    ];
+    const doc = makeDoc({
+      summaryAt: new Date(),
+      summaryType: "action_required",
+      summaryPeriods: periods,
+      summaryLocations: locations,
+    });
+    const full = buildSummaryFull(doc);
+    expect(full.periods).toEqual(periods);
+    expect(full.locations).toEqual(locations);
+  });
+
+  it("defaults summaryPeriods/summaryLocations to [] when missing", () => {
+    const doc = makeDoc({ summaryAt: new Date(), summaryType: "informational" });
+    const full = buildSummaryFull(doc);
+    expect(full.periods).toEqual([]);
+    expect(full.locations).toEqual([]);
+  });
+
+  it("details is null when summaryDetails is missing", () => {
+    const doc = makeDoc({ summaryAt: new Date() });
+    expect(buildSummaryFull(doc).details).toBeNull();
+  });
+
+  it("must NOT expose flat startDate/startTime/endDate/endTime or `body` key", () => {
+    const doc = makeDoc({
+      summaryAt: new Date(),
+      summary: "x",
+      summaryPeriods: [
+        { label: null, startDate: "2026-04-03", startTime: "09:00", endDate: "2026-04-09", endTime: "18:00" },
+      ],
+    });
     const full = buildSummaryFull(doc);
     expect(full).not.toHaveProperty("body");
+    expect(full).not.toHaveProperty("startDate");
+    expect(full).not.toHaveProperty("startTime");
+    expect(full).not.toHaveProperty("endDate");
+    expect(full).not.toHaveProperty("endTime");
     expect(full.text).toBe("x");
   });
 });
@@ -184,19 +303,25 @@ describe("toListItem", () => {
     expect(item).not.toHaveProperty("contentHtml");
   });
 
-  it("summary is brief (4 fields) not full", () => {
+  it("summary is brief (3 fields) not full", () => {
     const doc = makeDoc({
       summaryAt: new Date(),
       summaryOneLiner: "한줄",
       summaryType: "action_required",
-      summaryEndDate: "2026-04-09",
+      summaryPeriods: [
+        { label: null, startDate: null, startTime: null, endDate: "2026-04-09", endTime: null },
+      ],
       summary: "긴 본문 요약",
       summaryDetails: { target: "x" },
+      summaryLocations: [{ label: null, detail: "어딘가" }],
     });
     const item = toListItem(doc);
-    expect(Object.keys(item.summary).sort()).toEqual(["endDate", "endTime", "oneLiner", "type"]);
+    expect(Object.keys(item.summary).sort()).toEqual(["endAt", "oneLiner", "type"]);
+    expect(item.summary.endAt).toEqual({ date: "2026-04-09", time: null });
     expect(item.summary).not.toHaveProperty("text");
     expect(item.summary).not.toHaveProperty("details");
+    expect(item.summary).not.toHaveProperty("periods");
+    expect(item.summary).not.toHaveProperty("locations");
   });
 
   it("summary is null when summaryAt missing", () => {
@@ -238,16 +363,24 @@ describe("toDetailItem", () => {
     expect(item.editInfo).toEqual({ count: 1, history: [] });
   });
 
-  it("summary is full (includes text, details, model) when summaryAt present", () => {
+  it("summary is full (includes text, periods, locations, details, model) when summaryAt present", () => {
+    const periods = [
+      { label: null, startDate: "2026-04-15", startTime: "14:00", endDate: "2026-04-15", endTime: null },
+    ];
+    const locations = [{ label: null, detail: "경영관 33101호" }];
     const doc = makeDoc({
       summaryAt: new Date(),
       summary: "본문",
       summaryType: "informational",
+      summaryPeriods: periods,
+      summaryLocations: locations,
       summaryDetails: { host: "x" },
       summaryModel: "m",
     });
     const item = toDetailItem(doc);
     expect(item.summary.text).toBe("본문");
+    expect(item.summary.periods).toEqual(periods);
+    expect(item.summary.locations).toEqual(locations);
     expect(item.summary.details).toEqual({ host: "x" });
     expect(item.summary.model).toBe("m");
   });
