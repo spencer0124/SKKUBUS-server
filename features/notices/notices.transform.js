@@ -19,6 +19,9 @@
  *   endAt.label is the selected period's label (or null). startAt carries the
  *   selected period's start, and is meaningful primarily for informational
  *   range-state UI; action_required clients should ignore startAt.
+ * - endAt.altCount: count of *other* still-valid (future) parallel deadlines
+ *   besides the one selected — only meaningful for action_required future-pick.
+ *   0 for closed (all past), event, informational.
  */
 
 const moment = require("moment-timezone");
@@ -45,14 +48,18 @@ function periodEndEpochMs(period) {
  * @param {Array} periods - summaryPeriods from the doc (raw shape)
  * @param {string} type   - normalized summaryType
  * @param {Date}   now    - current time (injectable for tests)
- * @returns {object|null} selected period, or null if no meaningful choice
+ * @returns {{period: object, altCount: number}|null}
+ *          selected period + count of other still-future parallel deadlines,
+ *          or null if no meaningful choice. altCount is 0 for event /
+ *          informational passthrough and for the all-past fallback.
  */
 function selectEffectivePeriod(periods, type, now) {
   if (!Array.isArray(periods) || periods.length === 0) return null;
 
   if (type !== "action_required") {
-    // event / informational: trust AI's periods[0] ordering.
-    return periods[0];
+    // event / informational: trust AI's periods[0] ordering. No parallel
+    // semantics here — altCount is always 0.
+    return { period: periods[0], altCount: 0 };
   }
 
   // action_required: best-pick with rule (a) exclusion.
@@ -69,18 +76,24 @@ function selectEffectivePeriod(periods, type, now) {
   const withEpoch = candidates.map((p) => ({ p, t: periodEndEpochMs(p) }));
 
   const future = withEpoch.filter((x) => x.t >= nowMs).sort((a, b) => a.t - b.t);
-  if (future.length > 0) return future[0].p;
+  if (future.length > 0) {
+    // altCount = other future candidates besides the one we selected.
+    return { period: future[0].p, altCount: future.length - 1 };
+  }
 
   // All past: return most recently passed (for "closed" badge).
+  // altCount is 0 — "외 N건" is meaningless for a deadline that already ended.
   withEpoch.sort((a, b) => b.t - a.t);
-  return withEpoch[0].p;
+  return { period: withEpoch[0].p, altCount: 0 };
 }
 
 function buildSummaryBrief(doc, now = new Date()) {
   if (!doc.summaryAt) return null;
   const periods = Array.isArray(doc.summaryPeriods) ? doc.summaryPeriods : [];
   const type = normalizeSummaryType(doc.summaryType);
-  const selected = selectEffectivePeriod(periods, type, now);
+  const result = selectEffectivePeriod(periods, type, now);
+  const selected = result ? result.period : null;
+  const altCount = result ? result.altCount : 0;
 
   const startAt =
     selected && (selected.startDate || selected.startTime)
@@ -93,6 +106,7 @@ function buildSummaryBrief(doc, now = new Date()) {
           date: selected.endDate || null,
           time: selected.endTime || null,
           label: selected.label || null,
+          altCount,
         }
       : null;
 
