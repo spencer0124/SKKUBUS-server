@@ -1150,5 +1150,29 @@
     "category": null,
     "hasCategory": false,
     "hasAuthor": true
+  },
+  {
+    "id": "lib-seoul",
+    "name": "도서관(인사캠/중앙학술정보관)",
+    "campus": null,
+    "category": null,
+    "hasCategory": true,
+    "hasAuthor": false
+  },
+  {
+    "id": "lib-suwon",
+    "name": "도서관(자과캠/삼성학술정보관)",
+    "campus": null,
+    "category": null,
+    "hasCategory": true,
+    "hasAuthor": false
+  },
+  {
+    "id": "lib-all",
+    "name": "도서관(전체/양캠퍼스공통)",
+    "campus": null,
+    "category": null,
+    "hasCategory": true,
+    "hasAuthor": false
   }
 ]
