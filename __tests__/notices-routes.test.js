@@ -347,6 +347,29 @@ describe("route ordering", () => {
 });
 
 // ──────────────────────────────────────────────────────────────────────
+// /proxy/attachment CORP override regression guard.
+//
+// The proxy is consumed cross-origin by skkuverse.com's Pages Function
+// (notice-detail web fallback) which embeds proxied images via <img>.
+// helmet's default Cross-Origin-Resource-Policy: same-origin would cause
+// browsers to refuse the embed (broken-image X). The handler explicitly
+// overrides to cross-origin at entry. This test pins that behavior so a
+// future helmet major upgrade or middleware reorder can't silently regress
+// it. Same defensive pattern as the rev 4 cache-HIT verification.
+//
+// We exercise the validation-error path (no url query) since it returns
+// 400 without needing a real upstream — Express still emits the override
+// header because res.set is called before res.error.
+// ──────────────────────────────────────────────────────────────────────
+
+describe("GET /notices/proxy/attachment — CORP cross-origin override", () => {
+  it("sets Cross-Origin-Resource-Policy: cross-origin on the response", async () => {
+    const res = await request(app).get("/notices/proxy/attachment");
+    expect(res.headers["cross-origin-resource-policy"]).toBe("cross-origin");
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────
 // Notice search (q parameter) — routes-level integration tests.
 // The data layer is mocked, so these tests verify the route's parsing,
 // validation, and pass-through behavior. Query-shape composition (regex

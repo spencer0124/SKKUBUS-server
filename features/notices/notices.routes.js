@@ -169,6 +169,24 @@ router.get(
 // Fixes two upstream quirks:
 // 1. Some servers return application/unknown for .hwp — corrected via ext map
 // 2. Content-Disposition filenames are often mojibake — use client-supplied name
+//
+// Dual-use note (route name is historical; usage extends past attachments):
+//   - Mobile app: this proxy is used ONLY for attachment preview/download
+//     (NoticeDetailScreen.buildAttachmentUrl). In-article images bypass the
+//     proxy — RN's Image.getSizeWithHeaders + <Image source={{uri,headers}}>
+//     can inject Referer per-fetch directly, so SKKU origin requests work
+//     without a server hop.
+//   - Web Pages Function (skkuverse.com /p/notices/<sourceId>/<articleNo>):
+//     this proxy is used for BOTH attachment buttons AND in-article <img>
+//     src. Browsers cannot set arbitrary Referer per-image (spec limits
+//     `referrerpolicy` to enums), so the proxy hop is the only way to
+//     satisfy SKKU's hotlink check on web image embeds.
+//
+//   The CORP cross-origin override below was added when the web extension
+//   shipped — attachment-only consumers (mobile in-app browser, web
+//   <a target="_blank">) are top-level navigations untouched by CORP, so
+//   the override is invisible to them. Web <img> embeds were the only
+//   blocker; allowing cross-origin restores that one path.
 
 const EXT_MIME = {
   ".pdf": "application/pdf",
@@ -281,6 +299,19 @@ function pipeDownload(upstream, res, url, name, mode) {
 router.get(
   "/proxy/attachment",
   asyncHandler(async (req, res) => {
+    // Override helmet's default Cross-Origin-Resource-Policy: same-origin for
+    // this route only. The proxy is intentionally consumed cross-origin by
+    // skkuverse.com's Pages Function (notice-detail web fallback) which embeds
+    // proxied images via <img>. Without this override, browsers receive the
+    // 200 response but refuse to render the image (CORP block, broken-image X).
+    // Mobile is unaffected — RN's Image fetcher does not enforce CORP. Other
+    // API routes remain at the helmet default since they're consumed
+    // server-to-server (mobile fetch + web Pages Function fetch), where CORP
+    // does not gate. `<a target="_blank">` and `<a href>` to this proxy are
+    // top-level navigation, also not gated by CORP, so attachment preview /
+    // download paths are unaffected by either CORP value.
+    res.set("Cross-Origin-Resource-Policy", "cross-origin");
+
     const { url, referer, mode, name } = req.query;
     if (!url) {
       return res.error(400, "INVALID_PARAMS", "url is required");
