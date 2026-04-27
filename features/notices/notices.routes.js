@@ -281,6 +281,19 @@ function pipeDownload(upstream, res, url, name, mode) {
 router.get(
   "/proxy/attachment",
   asyncHandler(async (req, res) => {
+    // Override helmet's default Cross-Origin-Resource-Policy: same-origin for
+    // this route only. The proxy is intentionally consumed cross-origin by
+    // skkuverse.com's Pages Function (notice-detail web fallback) which embeds
+    // proxied images via <img>. Without this override, browsers receive the
+    // 200 response but refuse to render the image (CORP block, broken-image X).
+    // Mobile is unaffected — RN's Image fetcher does not enforce CORP. Other
+    // API routes remain at the helmet default since they're consumed
+    // server-to-server (mobile fetch + web Pages Function fetch), where CORP
+    // does not gate. `<a target="_blank">` and `<a href>` to this proxy are
+    // top-level navigation, also not gated by CORP, so attachment preview /
+    // download paths are unaffected by either CORP value.
+    res.set("Cross-Origin-Resource-Policy", "cross-origin");
+
     const { url, referer, mode, name } = req.query;
     if (!url) {
       return res.error(400, "INVALID_PARAMS", "url is required");
