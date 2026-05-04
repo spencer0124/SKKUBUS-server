@@ -30,7 +30,11 @@ const config = require("../lib/config");
 const DRY_RUN = process.argv.includes("--dry-run");
 
 const PARTIAL_INDEX_NAME = "dispatch_pending_idx";
-const PARTIAL_INDEX_SPEC = { createdAt: -1 };
+// Sort key uses `crawledAt` (crawler-emitted timestamp) — NOT `createdAt`.
+// The notices collection has no `createdAt` field. Sweep query in
+// notices.dispatcher.js:claimNext uses `crawledAt` as the age gate.
+// Verified against prod doc 2026-05-04.
+const PARTIAL_INDEX_SPEC = { crawledAt: -1 };
 // Partial filter — matches the sweep's hot predicates exactly.
 // Note: MongoDB partial indexes do NOT support $ne. We use $type: "date"
 // instead, which is semantically equivalent for our schema (aiSummaryAt is
@@ -76,10 +80,39 @@ async function main() {
   });
 
   // ── 1. Partial sweep index ──
-  if (partialBefore) {
+  // Idempotent. Three cases:
+  //   (a) absent           → create
+  //   (b) present, correct → skip
+  //   (c) present, wrong key (e.g. legacy {createdAt:-1} from before the
+  //       2026-05-04 schema fix) → drop + recreate so the sort key matches
+  //       what the dispatcher's sweep query actually filters on.
+  function specsMatch(actualKey, desiredKey) {
+    const a = JSON.stringify(actualKey || {});
+    const b = JSON.stringify(desiredKey);
+    return a === b;
+  }
+
+  if (partialBefore && specsMatch(partialBefore.key, PARTIAL_INDEX_SPEC)) {
     console.log(
-      `Index "${PARTIAL_INDEX_NAME}" already exists; skipping createIndex.`,
+      `Index "${PARTIAL_INDEX_NAME}" already exists with correct spec; skipping.`,
     );
+  } else if (partialBefore) {
+    console.log(
+      `Index "${PARTIAL_INDEX_NAME}" exists with WRONG spec ${JSON.stringify(partialBefore.key)} — needs replacement.`,
+    );
+    if (DRY_RUN) {
+      console.log(
+        `[DRY-RUN] Would dropIndex("${PARTIAL_INDEX_NAME}") then recreate with ${JSON.stringify(PARTIAL_INDEX_SPEC)}`,
+      );
+    } else {
+      await col.dropIndex(PARTIAL_INDEX_NAME);
+      console.log(`Dropped legacy index: ${PARTIAL_INDEX_NAME}`);
+      const indexName = await col.createIndex(
+        PARTIAL_INDEX_SPEC,
+        PARTIAL_INDEX_OPTIONS,
+      );
+      console.log(`Recreated index: ${indexName}`);
+    }
   } else if (DRY_RUN) {
     console.log(
       `[DRY-RUN] Would createIndex(${JSON.stringify(PARTIAL_INDEX_SPEC)}, ${JSON.stringify(PARTIAL_INDEX_OPTIONS)})`,
@@ -150,6 +183,12 @@ async function main() {
     }
     if (!partialAfter) {
       console.error(`MISMATCH: ${PARTIAL_INDEX_NAME} not present after run`);
+      process.exit(1);
+    }
+    if (!specsMatch(partialAfter.key, PARTIAL_INDEX_SPEC)) {
+      console.error(
+        `MISMATCH: ${PARTIAL_INDEX_NAME} has wrong key ${JSON.stringify(partialAfter.key)} (expected ${JSON.stringify(PARTIAL_INDEX_SPEC)})`,
+      );
       process.exit(1);
     }
   }
