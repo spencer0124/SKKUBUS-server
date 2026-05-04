@@ -6,6 +6,7 @@ node_modules/
 # Environment
 *.env
 .env
+.env.bak*
 .mcp.json
 
 # OS

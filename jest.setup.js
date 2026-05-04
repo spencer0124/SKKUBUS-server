@@ -32,6 +32,9 @@ const defaults = {
   MONGO_DB_NAME_JAIN_WEEKDAY: "JAIN_weekday",
   MONGO_DB_NAME_JAIN_FRIDAY: "JAIN_friday",
   MONGO_DB_NAME_JAIN_WEEKEND: "JAIN_weekend",
+  FCM_FUNCTION_URL: "http://test-fcm-function/sendNotification",
+  FCM_API_KEY: "test-fcm-api-key",
+  INTERNAL_DISPATCH_TOKEN: "test-internal-dispatch-token",
 };
 
 for (const [key, value] of Object.entries(defaults)) {

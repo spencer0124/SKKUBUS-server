@@ -231,4 +231,10 @@ const responseByLang = Object.freeze({
   en: Object.freeze(buildTabsResponse("en")),
 });
 
-module.exports = { responseByLang, sourceMap };
+// Frozen view of the validated category definitions, exposed for callers that
+// need to reverse-map a sourceId onto its tab(s) — e.g. the FCM dispatcher
+// computing topics for a notice. Validation already ran above, so consumers
+// can trust shape: { id, tabMode: "fixed"|"picker", sourceId? | sourceIds[] }.
+const categories = Object.freeze(rawCategories.map((c) => Object.freeze(c)));
+
+module.exports = { responseByLang, sourceMap, categories };
