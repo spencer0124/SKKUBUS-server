@@ -7,6 +7,9 @@ services:
       - NODE_ENV=production
       - ROLE=poller
       - TZ=Asia/Seoul
+      # Safety-net cron for FCM dispatch — only the poller container runs it.
+      # Primary trigger is the crawler's cycle-end ping to /internal/notices/dispatch-pending.
+      - DISPATCH_SWEEP_ENABLED=true
     restart: unless-stopped
     mem_limit: 256m
     cpus: 0.5

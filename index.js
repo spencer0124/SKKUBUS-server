@@ -14,6 +14,7 @@ const { ensureIndexes, seedIfEmpty } = require("./features/ad/ad.data");
 const { ensureScheduleIndexes } = require("./features/bus/schedule-db");
 const { ensureIndexes: ensureBuildingIndexes } = require("./features/building/building.data");
 require("./features/building/building.sync"); // poller registration (side-effect)
+require("./features/notices/notices.dispatch.poller"); // poller registration (side-effect, env-gated)
 const busCache = require("./lib/busCache");
 
 let swaggerFile;
@@ -105,6 +106,7 @@ const mapMarkersRoutes = require("./features/map/map-markers.routes");
 const mapOverlaysRoutes = require("./features/map/map-overlays.routes");
 const buildingRoutes = require("./features/building/building.routes");
 const noticesRoute = require("./features/notices/notices.routes");
+const noticesInternalRoute = require("./features/notices/notices.internal.routes");
 const { ensureNoticeIndexes } = require("./features/notices/notices.data");
 
 const noticesLimiter = rateLimit({
@@ -131,6 +133,10 @@ app.use("/map/markers", generalLimiter, mapMarkersRoutes);
 app.use("/map/overlays", generalLimiter, mapOverlaysRoutes);
 app.use("/building", generalLimiter, buildingRoutes);
 app.use("/notices", verifyToken, noticesLimiter, noticesRoute);
+// Internal-only — auth via shared X-Internal-Token header inside the route.
+// Skips Firebase verifyToken (caller is the crawler service, not an end user)
+// and the noticesLimiter (single ping per crawl cycle).
+app.use("/internal/notices", noticesInternalRoute);
 
 // 404 handler (after all routes, before error handler)
 app.use((req, res) => {

@@ -1,0 +1,164 @@
+#!/usr/bin/env node
+/**
+ * Step 0 of the FCM dispatch rollout — initialize the notices outbox state.
+ *
+ * Two side effects, in this order:
+ *   (a) createIndex `dispatch_pending_idx` — partial filter index for the
+ *       sweep query so it stays sub-millisecond as `notices` accumulates.
+ *   (b) backfill marker — set pushedAt/pushAttempts/pushError/aiSummaryAt/
+ *       dispatchClaimedAt on every existing notice doc so the first sweep
+ *       does NOT fire pushes for every historical notice.
+ *
+ * Idempotent. Re-running:
+ *   - createIndex with the same spec is a no-op (Mongo returns the existing
+ *     name without error).
+ *   - the backfill matches `pushedAt: { $exists: false }`, so a second run
+ *     finds 0 docs to update.
+ *
+ * Usage:
+ *   node scripts/migrate-notices-dispatch-init.js              # apply
+ *   node scripts/migrate-notices-dispatch-init.js --dry-run    # report only
+ *
+ * Pre-deploy: must run BEFORE crawler restart that begins setting aiSummaryAt
+ * and BEFORE the new server boots with sweep enabled. Otherwise the first
+ * sweep would interpret every existing notice as push-pending.
+ */
+require("dotenv").config();
+const { MongoClient } = require("mongodb");
+const config = require("../lib/config");
+
+const DRY_RUN = process.argv.includes("--dry-run");
+
+const PARTIAL_INDEX_NAME = "dispatch_pending_idx";
+const PARTIAL_INDEX_SPEC = { createdAt: -1 };
+// Partial filter — matches the sweep's hot predicates exactly.
+// Note: MongoDB partial indexes do NOT support $ne. We use $type: "date"
+// instead, which is semantically equivalent for our schema (aiSummaryAt is
+// only ever null or a Date) AND strictly more correct: a stray non-Date
+// value would not pollute the index. The dispatcher's sweep query mirrors
+// this `$type: "date"` predicate so the planner picks this index reliably.
+const PARTIAL_INDEX_OPTIONS = {
+  partialFilterExpression: {
+    pushedAt: null,
+    aiSummaryAt: { $type: "date" },
+  },
+  name: PARTIAL_INDEX_NAME,
+};
+
+async function main() {
+  const url = process.env.MONGO_URL;
+  if (!url) {
+    console.error("MONGO_URL not set in .env");
+    process.exit(1);
+  }
+
+  const client = new MongoClient(url);
+  await client.connect();
+  console.log("Connected to MongoDB");
+
+  const dbName = config.notices.dbName;
+  const collName = config.notices.collections.notices;
+  console.log(`Target: ${dbName}.${collName}${DRY_RUN ? "  [DRY-RUN]" : ""}`);
+
+  const col = client.db(dbName).collection(collName);
+
+  // ── 0. Pre-state snapshot ──
+  const totalBefore = await col.countDocuments({});
+  const withPushedAt = await col.countDocuments({ pushedAt: { $exists: true } });
+  const missingPushedAt = await col.countDocuments({ pushedAt: { $exists: false } });
+  const indexesBefore = await col.indexes();
+  const partialBefore = indexesBefore.find((i) => i.name === PARTIAL_INDEX_NAME);
+  console.log("Before:", {
+    totalBefore,
+    withPushedAt,
+    missingPushedAt,
+    partialIndexAlreadyExists: !!partialBefore,
+  });
+
+  // ── 1. Partial sweep index ──
+  if (partialBefore) {
+    console.log(
+      `Index "${PARTIAL_INDEX_NAME}" already exists; skipping createIndex.`,
+    );
+  } else if (DRY_RUN) {
+    console.log(
+      `[DRY-RUN] Would createIndex(${JSON.stringify(PARTIAL_INDEX_SPEC)}, ${JSON.stringify(PARTIAL_INDEX_OPTIONS)})`,
+    );
+  } else {
+    const indexName = await col.createIndex(
+      PARTIAL_INDEX_SPEC,
+      PARTIAL_INDEX_OPTIONS,
+    );
+    console.log(`Created index: ${indexName}`);
+  }
+
+  // ── 2. Backfill marker ──
+  if (missingPushedAt === 0) {
+    console.log("Nothing to backfill (all docs already have pushedAt).");
+  } else if (DRY_RUN) {
+    console.log(
+      `[DRY-RUN] Would updateMany on ${missingPushedAt} docs (set pushedAt=epoch + sibling fields).`,
+    );
+  } else {
+    const result = await col.updateMany(
+      { pushedAt: { $exists: false } },
+      {
+        $set: {
+          // Epoch sentinel so the maxAgeMs(24h) window in the sweep query
+          // excludes these forever — they were inserted before this rollout
+          // and must NEVER be retroactively pushed.
+          pushedAt: new Date(0),
+          pushAttempts: 0,
+          pushError: null,
+          // Deliberately NOT copying from the existing `summaryAt` field —
+          // that would pull historical notices into the sweep's pushable set
+          // even with an epoch pushedAt. Setting null keeps them excluded by
+          // the `aiSummaryAt: { $ne: null }` gate too. Defense in depth.
+          aiSummaryAt: null,
+          dispatchClaimedAt: null,
+        },
+      },
+    );
+    console.log("Backfill result:", {
+      matched: result.matchedCount,
+      modified: result.modifiedCount,
+    });
+  }
+
+  // ── 3. Post-state verification ──
+  const totalAfter = await col.countDocuments({});
+  const stillMissing = await col.countDocuments({ pushedAt: { $exists: false } });
+  const indexesAfter = await col.indexes();
+  const partialAfter = indexesAfter.find((i) => i.name === PARTIAL_INDEX_NAME);
+  console.log("After:", {
+    totalAfter,
+    stillMissingPushedAt: stillMissing,
+    partialIndexExists: !!partialAfter,
+    partialIndexSpec: partialAfter
+      ? { key: partialAfter.key, partialFilterExpression: partialAfter.partialFilterExpression }
+      : null,
+  });
+
+  if (!DRY_RUN) {
+    if (totalAfter !== totalBefore) {
+      console.error(`MISMATCH: doc count changed (${totalBefore} → ${totalAfter})`);
+      process.exit(1);
+    }
+    if (stillMissing !== 0) {
+      console.error(`MISMATCH: ${stillMissing} docs still missing pushedAt`);
+      process.exit(1);
+    }
+    if (!partialAfter) {
+      console.error(`MISMATCH: ${PARTIAL_INDEX_NAME} not present after run`);
+      process.exit(1);
+    }
+  }
+
+  console.log("Done.");
+  await client.close();
+}
+
+main().catch((err) => {
+  console.error("Migration failed:", err);
+  process.exit(1);
+});
