@@ -279,8 +279,10 @@ describe("sweepPending", () => {
     // exist on notices docs. Schema verified against prod 2026-05-04.
     expect(filter.crawledAt).toBeDefined();
     expect(filter.crawledAt.$gt).toBeInstanceOf(Date);
+    // $not:{$gte} so missing-field docs (fresh inserts) match;
+    // plain $lt would silently exclude them.
     expect(filter.pushAttempts).toEqual({
-      $lt: config.notices.dispatch.maxAttempts,
+      $not: { $gte: config.notices.dispatch.maxAttempts },
     });
     expect(filter.$or).toEqual(
       expect.arrayContaining([
