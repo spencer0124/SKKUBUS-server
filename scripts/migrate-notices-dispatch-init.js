@@ -126,8 +126,22 @@ async function main() {
   }
 
   // ── 2. Backfill marker ──
+  // The backfill is a one-time greenfield operation that marks PRE-EXISTING
+  // docs (at Step 0 time) as already-handled so the first sweep doesn't
+  // fire pushes for every historical notice. On re-runs, docs that are
+  // missing pushedAt are LEGITIMATELY push-ready (inserted by the crawler
+  // since Step 0) and must NOT be backfilled — that would silently mark
+  // them as already-pushed and they would never get a push.
+  //
+  // Guard: only run backfill when withPushedAt === 0 (true greenfield).
+  // Subsequent re-runs (e.g. for index spec drift like the 2026-05-04 fix)
+  // skip backfill regardless of how many docs lack pushedAt.
   if (missingPushedAt === 0) {
     console.log("Nothing to backfill (all docs already have pushedAt).");
+  } else if (withPushedAt > 0) {
+    console.log(
+      `Skipping backfill: ${missingPushedAt} doc(s) lack pushedAt, but ${withPushedAt} have it (greenfield backfill already done). These ${missingPushedAt} docs were inserted since Step 0 and are legitimate push candidates — leave them unmarked.`,
+    );
   } else if (DRY_RUN) {
     console.log(
       `[DRY-RUN] Would updateMany on ${missingPushedAt} docs (set pushedAt=epoch + sibling fields).`,
@@ -177,7 +191,11 @@ async function main() {
       console.error(`MISMATCH: doc count changed (${totalBefore} → ${totalAfter})`);
       process.exit(1);
     }
-    if (stillMissing !== 0) {
+    // Greenfield invariant: after a true Step-0 run, no doc should be missing
+    // pushedAt. On re-runs we deliberately leave new docs unmarked (they're
+    // legitimate push candidates), so we only enforce stillMissing===0 in the
+    // greenfield case.
+    if (withPushedAt === 0 && stillMissing !== 0) {
       console.error(`MISMATCH: ${stillMissing} docs still missing pushedAt`);
       process.exit(1);
     }

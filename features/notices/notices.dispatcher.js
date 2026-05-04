@@ -159,7 +159,12 @@ async function claimNext(col, now) {
       pushedAt: null,
       aiSummaryAt: { $type: "date" },
       crawledAt: { $gt: new Date(now.getTime() - maxAgeMs) },
-      pushAttempts: { $lt: maxAttempts },
+      // `$not: { $gte }` instead of `$lt` so missing/null pushAttempts (newly
+      // crawled docs that have never been claimed) ALSO match. `$lt` against
+      // a missing field returns false in Mongo and would silently exclude
+      // every fresh doc — Step 0 backfill only initializes pushAttempts on
+      // pre-existing docs, not on docs the crawler inserts later.
+      pushAttempts: { $not: { $gte: maxAttempts } },
       isDeleted: { $ne: true },
       $or: [
         { dispatchClaimedAt: null },
