@@ -147,11 +147,18 @@ async function claimNext(col, now) {
   // (the field is only ever null or a Date) and matches the partialFilterExpression
   // on `dispatch_pending_idx` exactly so the planner can use the partial index
   // instead of a collection scan. MongoDB partial indexes do not support $ne.
+  //
+  // Age gate uses `crawledAt` (the crawler-emitted timestamp) — NOT `createdAt`.
+  // The notices collection is populated by skkuverse-crawler and uses
+  // `crawledAt` for "when the crawler first inserted/touched this doc".
+  // There is no `createdAt` field. Verified 2026-05-04 against a sample doc
+  // and against `notices.data.js:LIST_PROJECTION` which already references
+  // `crawledAt` for the read path.
   return col.findOneAndUpdate(
     {
       pushedAt: null,
       aiSummaryAt: { $type: "date" },
-      createdAt: { $gt: new Date(now.getTime() - maxAgeMs) },
+      crawledAt: { $gt: new Date(now.getTime() - maxAgeMs) },
       pushAttempts: { $lt: maxAttempts },
       isDeleted: { $ne: true },
       $or: [

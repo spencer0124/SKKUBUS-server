@@ -43,7 +43,7 @@ function makeNotice(extra = {}) {
     pushAttempts: 0,
     pushError: null,
     dispatchClaimedAt: null,
-    createdAt: new Date(),
+    crawledAt: new Date(),
     isDeleted: false,
     ...extra,
   };
@@ -275,10 +275,13 @@ describe("sweepPending", () => {
     // partial-index-friendly form: matches the partialFilterExpression on
     // `dispatch_pending_idx` exactly so the planner uses the index.
     expect(filter.aiSummaryAt).toEqual({ $type: "date" });
+    // Age gate uses `crawledAt` (crawler-emitted) — `createdAt` does not
+    // exist on notices docs. Schema verified against prod 2026-05-04.
+    expect(filter.crawledAt).toBeDefined();
+    expect(filter.crawledAt.$gt).toBeInstanceOf(Date);
     expect(filter.pushAttempts).toEqual({
       $lt: config.notices.dispatch.maxAttempts,
     });
-    expect(filter.createdAt.$gt).toBeInstanceOf(Date);
     expect(filter.$or).toEqual(
       expect.arrayContaining([
         { dispatchClaimedAt: null },
